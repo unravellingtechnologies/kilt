@@ -51,20 +51,20 @@
 ---
 
 ### 1.3 Configuration System
-**Status**: TODO  
+**Status**: DONE  
 **Description**: TOML-based configuration parser with validation and schema support.
 
 **Tasks**:
-- [ ] Define configuration structs in `internal/core/config.go`
+- [x] Define configuration structs in `internal/core/config.go`
   - Global config, plugin configs, file mappings
   - Use TOML tags for parsing
-- [ ] Implement TOML parser using `github.com/BurntSushi/toml`
-- [ ] Add configuration validation
+- [x] Implement TOML parser using `github.com/BurntSushi/toml`
+- [x] Add configuration validation
   - Required fields, path validation, circular dependencies
-- [ ] Support `~` expansion and environment variables
-- [ ] Implement config file discovery (`.kilt/config.toml`, `~/.kilt/config.toml`)
-- [ ] Add schema documentation generator
-- [ ] Write comprehensive config parsing tests
+- [x] Support `~` expansion and environment variables
+- [x] Implement config file discovery (`.kilt/config.toml`, `~/.kilt/config.toml`)
+- [x] Add schema documentation generator
+- [x] Write comprehensive config parsing tests
 
 **Dependencies**: 1.1  
 **Estimated Complexity**: Medium
