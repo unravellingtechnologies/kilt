@@ -72,22 +72,22 @@
 ---
 
 ### 1.4 CLI Framework
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Set up cobra-based CLI with all main commands and flags.
 
 **Tasks**:
-- [ ] Set up cobra CLI in `cmd/kilt/main.go`
-- [ ] Implement root command with global flags
-  - `--dry-run`, `--verbose`, `--config`, `--no-color`
-- [ ] Create `kilt init <repo-url>` command
+- [x] Set up cobra CLI in `cmd/kilt/main.go`
+- [x] Implement root command with global flags
+  - `--dry-run`, `--verbose`, `--config`, `--no-color`, `--force`
+- [x] Create `kilt init <repo-url>` command
   - Clone repository, set up bare repo structure
-- [ ] Create `kilt sync` command
-  - Pull latest, apply changes, run plugins
-- [ ] Create `kilt doctor` command
+- [x] Create `kilt sync` command
+  - Pull latest, apply changes, run plugins (plugin execution pending engine implementation)
+- [x] Create `kilt doctor` command
   - Validate configuration, check dependencies
-- [ ] Create `kilt version` command
-- [ ] Add command completion (bash, zsh, fish)
-- [ ] Write CLI integration tests
+- [x] Create `kilt version` command
+- [x] Add command completion (bash, zsh, fish, powershell)
+- [x] Write CLI integration tests
 
 **Dependencies**: 1.1, 1.2, 1.3  
 **Estimated Complexity**: Medium
@@ -97,18 +97,18 @@
 ## Phase 2: Core Engine Features
 
 ### 2.1 State Management & Idempotency
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Track execution state to ensure idempotent operations.
 
 **Tasks**:
-- [ ] Create state directory structure (`.kilt/state/`)
-- [ ] Implement state tracking in `internal/core/state.go`
+- [x] Create state directory structure (`.kilt/state/`)
+- [x] Implement state tracking in `internal/core/state.go`
   - Track run-once tasks, file checksums, plugin executions
-- [ ] Use JSON or SQLite for state persistence
-- [ ] Add state locking for concurrent execution safety
-- [ ] Implement state cleanup and garbage collection
-- [ ] Add `kilt reset` command to clear state
-- [ ] Write state management tests
+- [x] Use JSON or SQLite for state persistence (JSON chosen for human readability)
+- [x] Add state locking for concurrent execution safety
+- [x] Implement state cleanup and garbage collection
+- [x] Add `kilt reset` command to clear state
+- [x] Write state management tests
 
 **Dependencies**: 1.1, 1.3  
 **Estimated Complexity**: Medium

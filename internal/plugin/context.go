@@ -23,7 +23,32 @@ type Config interface {
 // StateManager is an interface for state management
 // This will be implemented by internal/core/state package
 type StateManager interface {
-	// State management methods will be defined when state package is implemented
+	// Run-once task management
+	IsTaskCompleted(taskID string) bool
+	MarkTaskCompleted(taskID string, record interface{}) error // Use interface{} to avoid circular dependency
+	GetRunOnceRecord(taskID string) (interface{}, bool)       // Returns RunOnceRecord-like struct
+
+	// File state management
+	GetFileChecksum(targetPath string) (string, bool)
+	HasFileChanged(targetPath string) (bool, error)
+	UpdateFileRecord(sourcePath, targetPath string) error
+	RemoveFileRecord(targetPath string) error
+
+	// Plugin execution tracking
+	RecordPluginExecution(pluginName, version string, success bool, duration time.Duration) error
+	GetPluginRecord(pluginName string) (interface{}, bool) // Returns PluginRecord-like struct
+
+	// Sync tracking
+	UpdateLastSync() error
+	GetLastSync() time.Time
+
+	// Locking
+	AcquireLock() error
+	ReleaseLock() error
+
+	// State management
+	ClearState() error
+	GetStateDir() string
 }
 
 // BackupManager is an interface for backup operations

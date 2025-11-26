@@ -63,7 +63,18 @@ Full Go template support with built-in variables:
 
 ## Project Status
 
-**Status**: 🚧 In Development (Phase 1: Project Foundation)
+**Status**: 🚧 In Development (Phase 2: Core Engine Features)
+
+**Completed**:
+- ✅ Phase 1: Project Foundation & Core Architecture
+  - ✅ Project Setup (1.1)
+  - ✅ Plugin System Architecture (1.2)
+  - ✅ Configuration System (1.3)
+  - ✅ CLI Framework (1.4)
+- ✅ Phase 2: Core Engine Features
+  - ✅ State Management & Idempotency (2.1)
+
+**In Progress**: Phase 2 - Core Engine Features (Backup System, Template Engine, Engine Orchestrator)
 
 This project is currently in early development. See [tasks.md](tasks.md) for the full development roadmap and [architecture.md](architecture.md) for detailed architecture documentation.
 
@@ -127,11 +138,31 @@ See [architecture.md](architecture.md) for the complete configuration schema.
 ## Commands
 
 - `kilt init <repo-url>` — Initialize from Git repository
+  - Clones the repository as a bare repo to `~/.kilt/repo`
+  - Sets up the `.kilt` directory structure
 - `kilt sync` — Pull latest and apply changes
+  - Fetches latest changes from the remote repository
+  - Loads and validates configuration
+  - Executes plugins in the correct order (when engine is ready)
 - `kilt doctor` — Validate setup and dependencies
+  - Checks repository initialization
+  - Validates configuration file
+  - Verifies required dependencies (git, etc.)
+  - Checks file permissions and paths
 - `kilt version` — Show version information
-- `kilt restore <timestamp>` — Restore from backup
+- `kilt completion [bash|zsh|fish|powershell]` — Generate shell completion scripts
+- `kilt restore <timestamp>` — Restore from backup (coming in Phase 2)
 - `kilt reset` — Clear state and start fresh
+
+### Global Flags
+
+All commands support the following global flags:
+
+- `--dry-run` — Show what would happen without executing
+- `--verbose, -v` — Detailed logging output
+- `--config <path>` — Custom config file location (default: `.kilt/config.toml` or `~/.kilt/config.toml`)
+- `--no-color` — Disable colored output
+- `--force` — Skip confirmation prompts
 
 ## Development
 
