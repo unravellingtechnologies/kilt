@@ -1,0 +1,85 @@
+.PHONY: help build test lint install clean fmt vet run
+
+# Variables
+BINARY_NAME=kilt
+VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)"
+GOOS?=$(shell go env GOOS)
+GOARCH?=$(shell go env GOARCH)
+
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Available targets:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+build: ## Build the binary for current platform
+	@echo "Building $(BINARY_NAME) for $(GOOS)/$(GOARCH)..."
+	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/kilt
+	@echo "Binary created: bin/$(BINARY_NAME)"
+
+build-all: ## Build binaries for all supported platforms
+	@echo "Building for all platforms..."
+	@mkdir -p bin
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-darwin-amd64 ./cmd/kilt
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-darwin-arm64 ./cmd/kilt
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux-amd64 ./cmd/kilt
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux-arm64 ./cmd/kilt
+	@echo "All binaries created in bin/"
+
+test: ## Run tests
+	go test -v -race -coverprofile=coverage.out ./...
+
+test-coverage: test ## Run tests with coverage report
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+lint: ## Run linters
+	@echo "Running golangci-lint..."
+	golangci-lint run ./...
+
+lint-install: ## Install golangci-lint
+	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.55.2)
+
+fmt: ## Format code
+	go fmt ./...
+	@echo "Code formatted"
+
+vet: ## Run go vet
+	go vet ./...
+
+install: build ## Install binary to $GOPATH/bin or /usr/local/bin
+	@echo "Installing $(BINARY_NAME)..."
+	@mkdir -p ~/.local/bin || mkdir -p /usr/local/bin
+	@if [ -w /usr/local/bin ]; then \
+		cp bin/$(BINARY_NAME) /usr/local/bin/$(BINARY_NAME); \
+		echo "Installed to /usr/local/bin/$(BINARY_NAME)"; \
+	else \
+		cp bin/$(BINARY_NAME) ~/.local/bin/$(BINARY_NAME); \
+		echo "Installed to ~/.local/bin/$(BINARY_NAME)"; \
+	fi
+
+run: build ## Build and run the binary
+	./bin/$(BINARY_NAME)
+
+clean: ## Clean build artifacts
+	rm -rf bin/
+	rm -f coverage.out coverage.html
+	@echo "Cleaned build artifacts"
+
+deps: ## Download dependencies
+	go mod download
+	go mod tidy
+
+deps-update: ## Update dependencies
+	go get -u ./...
+	go mod tidy
+
+check: fmt vet lint test ## Run all checks (fmt, vet, lint, test)
+
+.DEFAULT_GOAL := help
+
+
+
