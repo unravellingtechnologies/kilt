@@ -9,8 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/BurntSushi/toml"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // TemplateEngine handles template rendering with built-in functions and custom data
@@ -77,7 +76,7 @@ func (te *TemplateEngine) RegisterOPFunction(fn func(string) (string, error)) {
 	te.opFunction = fn
 }
 
-// LoadCustomData loads custom data from a TOML or YAML file
+// LoadCustomData loads custom data from a YAML file
 func (te *TemplateEngine) LoadCustomData(dataPath string) error {
 	if dataPath == "" {
 		return nil
@@ -103,28 +102,11 @@ func (te *TemplateEngine) LoadCustomData(dataPath string) error {
 	// Determine file type by extension
 	ext := strings.ToLower(filepath.Ext(expandedPath))
 	switch ext {
-	case ".toml":
-		return te.loadTOMLData(data)
 	case ".yaml", ".yml":
 		return te.loadYAMLData(data)
 	default:
-		return fmt.Errorf("unsupported data file format: %s (supported: .toml, .yaml, .yml)", ext)
+		return fmt.Errorf("unsupported data file format: %s (supported: .yaml, .yml)", ext)
 	}
-}
-
-// loadTOMLData loads data from TOML format
-func (te *TemplateEngine) loadTOMLData(data []byte) error {
-	var customData map[string]interface{}
-	if _, err := toml.Decode(string(data), &customData); err != nil {
-		return fmt.Errorf("failed to parse TOML data: %w", err)
-	}
-
-	// Merge with existing custom data
-	for k, v := range customData {
-		te.customData[k] = v
-	}
-
-	return nil
 }
 
 // loadYAMLData loads data from YAML format

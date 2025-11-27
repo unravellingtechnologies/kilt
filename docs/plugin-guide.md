@@ -253,10 +253,11 @@ func (p *MyPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 Plugins can access their configuration from the main config file:
 
-```toml
-[plugins.my-plugin]
-value = "example"
-enabled = true
+```yaml
+plugins:
+  my-plugin:
+    value: "example"
+    enabled: true
 ```
 
 Access it in your plugin:

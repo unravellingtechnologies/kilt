@@ -35,7 +35,7 @@ func TestNewEngine(t *testing.T) {
 	// Create a minimal config
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 
 	// Create registry
@@ -86,7 +86,7 @@ func TestNewEngine_NilRegistry(t *testing.T) {
 func TestEngine_PreflightChecks(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -104,7 +104,7 @@ func TestEngine_PreflightChecks(t *testing.T) {
 func TestEngine_Execute_NoPlugins(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -130,7 +130,7 @@ func TestEngine_Execute_NoPlugins(t *testing.T) {
 func TestEngine_Execute_WithPlugins(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -173,7 +173,7 @@ func TestEngine_Execute_WithPlugins(t *testing.T) {
 func TestEngine_Execute_PluginValidationFailure(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -213,7 +213,7 @@ func TestEngine_Execute_PluginValidationFailure(t *testing.T) {
 func TestEngine_Execute_DryRun(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -254,7 +254,7 @@ func TestEngine_Execute_DryRun(t *testing.T) {
 func TestEngine_GetExecutionPlan(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -292,7 +292,7 @@ func TestEngine_GetExecutionPlan(t *testing.T) {
 func TestEngine_Cancel(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -316,7 +316,7 @@ func TestEngine_Cancel(t *testing.T) {
 func TestEngine_SetDryRun(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 
@@ -343,7 +343,7 @@ func TestEngine_SetDryRun(t *testing.T) {
 func TestEngine_SetVerbose(t *testing.T) {
 	cfg := &Config{
 		TemplateEngine: "go",
-		Files:          []FileMapping{},
+		Dotfiles:       []DotfileEntry{},
 	}
 	registry := plugin.NewRegistry()
 

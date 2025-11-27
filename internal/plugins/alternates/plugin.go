@@ -92,9 +92,14 @@ func (p *AlternatesPlugin) Execute(ctx *plugin.ExecutionContext) error {
 	osName := runtime.GOOS
 	arch := runtime.GOARCH
 
-	// Resolve alternates for each file mapping
-	for i := range cfg.Files {
-		originalSource := cfg.Files[i].Source
+	// Resolve alternates for each dotfile entry with explicit Source
+	for i := range cfg.Dotfiles {
+		// Skip directory-mode entries (only process explicit source mappings)
+		if cfg.Dotfiles[i].Source == "" {
+			continue
+		}
+
+		originalSource := cfg.Dotfiles[i].Source
 		resolvedSource, err := p.resolveAlternate(originalSource, hostname, osName, arch)
 		if err != nil {
 			if p.ctx.Logger != nil {
@@ -106,7 +111,7 @@ func (p *AlternatesPlugin) Execute(ctx *plugin.ExecutionContext) error {
 
 		if resolvedSource != originalSource {
 			// Update the source path
-			cfg.Files[i].Source = resolvedSource
+			cfg.Dotfiles[i].Source = resolvedSource
 			p.resolutions[originalSource] = resolvedSource
 
 			// Log the resolution

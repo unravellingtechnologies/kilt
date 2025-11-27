@@ -154,33 +154,36 @@ Format & Display Output
 #### Config Parser (`config.go`)
 ```go
 type Config struct {
-    DataFile       string          `toml:"data_file"`
-    TemplateEngine string          `toml:"template_engine"`
-    Files          []FileMapping   `toml:"files"`
-    ExtraRepos     []Repository    `toml:"extra_repos"`
-    Directories    []string        `toml:"directories"`
-    RunOnce        []string        `toml:"run_once"`
-    OnChange       []string        `toml:"on_change"`
-    Plugins        map[string]any  `toml:"plugins"`
+    DotfilesRepo   string          `yaml:"dotfiles_repo"`
+    DotfilesPath   string          `yaml:"dotfiles_path"`
+    DataFile       string          `yaml:"data_file"`
+    TemplateEngine string          `yaml:"template_engine"`
+    Dotfiles       []DotfileEntry  `yaml:"dotfiles"`
+    ExtraRepos     []Repository    `yaml:"extra_repos"`
+    Directories    []string        `yaml:"directories"`
+    RunOnce        []string        `yaml:"run_once"`
+    OnChange       []string        `yaml:"on_change"`
+    Plugins        map[string]any  `yaml:"plugins"`
 }
 
-type FileMapping struct {
-    Source   string `toml:"source"`
-    Target   string `toml:"target"`
-    Template bool   `toml:"template"`
-    Mode     string `toml:"mode"`  // file permissions
+type DotfileEntry struct {
+    Directory string `yaml:"directory,omitempty"` // Simple form: directory name
+    Source    string `yaml:"source,omitempty"`    // Explicit source path
+    Target    string `yaml:"target,omitempty"`    // Explicit target path
+    Template  bool   `yaml:"template,omitempty"`
+    Mode      string `yaml:"mode,omitempty"`      // file permissions
 }
 
 type Repository struct {
-    URL    string `toml:"url"`
-    Path   string `toml:"path"`
-    Branch string `toml:"branch"`
-    Sparse bool   `toml:"sparse"`
+    URL    string `yaml:"url"`
+    Path   string `yaml:"path"`
+    Branch string `yaml:"branch,omitempty"`
+    Sparse bool   `yaml:"sparse,omitempty"`
 }
 ```
 
 **Responsibilities**:
-- Parse TOML configuration file
+- Parse YAML configuration file
 - Validate configuration schema
 - Expand `~` and environment variables
 - Merge multiple config sources (global, local)
@@ -306,7 +309,7 @@ type TemplateData struct {
 
 **Responsibilities**:
 - Render Go templates with built-in variables
-- Load custom data from `data.toml`
+- Load custom data from `data.yaml`
 - Integrate with 1Password plugin for secrets
 - Handle template errors gracefully
 
@@ -553,11 +556,11 @@ User: kilt init https://github.com/user/dotfiles
     ↓
 2. Create directory structure (~/.kilt/)
     ↓
-3. Clone bare repository
+3. Clone repository to ~/.dotfiles (or configured dotfiles_path)
     ↓
-4. Checkout config file
+4. Read config from ~/.dotfiles/.kilt/config.yaml
     ↓
-5. Parse configuration
+5. Parse YAML configuration
     ↓
 6. Initialize plugins
     ↓
@@ -569,30 +572,37 @@ User: kilt init https://github.com/user/dotfiles
 ```
 User: kilt sync
     ↓
-1. Load configuration (~/.kilt/config.toml)
+1. Load configuration (~/.dotfiles/.kilt/config.yaml)
     ↓
 2. Load state (~/.kilt/state/state.json)
     ↓
 3. Acquire lock
     ↓
-4. Git pull (if online)
+4. Git Plugin (PhasePreSync)
+    │   ├─ Fetch remote changes
+    │   ├─ Check for local changes
+    │   ├─ Check for remote changes
+    │   ├─ Pull remote changes (if any)
+    │   └─ Commit and push local changes (if any)
     ↓
 5. Build execution plan
     ↓
 6. Create backup (if needed)
     ↓
 7. Execute plugins (ordered by phase)
-    │   ├─ Files Plugin
-    │   │   ├─ For each file mapping
-    │   │   ├─ Render templates
-    │   │   ├─ Check if changed
-    │   │   └─ Copy to target
-    │   ├─ Directories Plugin
+    │   ├─ Alternates Plugin (PhasePreSync)
+    │   │   └─ Resolve OS/hostname-specific files
+    │   ├─ Dotfiles Plugin (PhaseCore)
+    │   │   ├─ For each dotfile entry
+    │   │   ├─ Process directory-based entries (symlink all files)
+    │   │   ├─ Process explicit mappings (symlink or template)
+    │   │   └─ Smart dot-prefixing for common names
+    │   ├─ Directories Plugin (PhaseCore)
     │   │   └─ Create missing directories
-    │   ├─ Run Once Plugin
+    │   ├─ Run Once Plugin (PhaseRunOnce)
     │   │   ├─ Check state
     │   │   └─ Execute if not done
-    │   └─ Brew Plugin
+    │   └─ Brew Plugin (PhaseIntegration)
     │       ├─ Detect Brewfile changes
     │       └─ Run brew bundle
     ↓
@@ -612,7 +622,7 @@ File with template: true
     ↓
 2. Load template data
     │   ├─ Built-in vars (hostname, os, arch)
-    │   └─ Custom data (data.toml)
+    │   └─ Custom data (data.yaml)
     ↓
 3. Parse template
     ↓
@@ -693,10 +703,16 @@ kilt/
 ### User Directory Structure
 
 ```
+~/.dotfiles/                        # Dotfiles repository (cloned by kilt init)
+├── .kilt/
+│   └── config.yaml                 # Main configuration
+├── zsh/                            # Example dotfile directory
+├── git/                            # Example dotfile directory
+└── ...
+
 ~/.kilt/
-├── config.toml                     # Main configuration
-├── data.toml                       # Custom template data
-├── repo/                           # Bare Git repository
+├── data.yaml                       # Custom template data (optional)
+├── state/
 │   ├── HEAD
 │   ├── config
 │   ├── objects/
@@ -720,117 +736,108 @@ kilt/
 
 ## Configuration Schema
 
-### Complete TOML Schema
+### Complete YAML Schema
 
-```toml
-# ~/.kilt/config.toml
+```yaml
+# ~/.dotfiles/.kilt/config.yaml
+
+# Dotfiles repository (required for kilt init)
+dotfiles_repo: "https://github.com/user/dotfiles"
+dotfiles_path: "~/.dotfiles"  # default
 
 # Optional: custom data file for templates
-data_file = "data.toml"
+data_file: "data.yaml"
 
 # Template engine (currently only "go")
-template_engine = "go"
+template_engine: "go"
 
-# File mappings (arrays preserve order)
-[[files]]
-source = "zsh/zshrc"
-target = "~/.zshrc"
-template = false
-mode = "0644"
-
-[[files]]
-source = "gitconfig.tmpl"
-target = "~/.gitconfig"
-template = true  # Will render as Go template
-mode = "0644"
-
-[[files]]
-source = "ssh/config"
-target = "~/.ssh/config"
-template = true
-mode = "0600"
+# Dotfiles to sync (symlinks from repo to ~)
+dotfiles:
+  # Simple form: directory name (links all files in directory)
+  - zsh              # Links all files in zsh/ to ~/
+  - git              # Links all files in git/ to ~/
+  - vim
+  
+  # Explicit form: source/target mapping
+  - source: ssh/config
+    target: ~/.ssh/config
+    template: true  # Will render as Go template
+    mode: "0600"
 
 # Extra Git repositories
-[[extra_repos]]
-url = "https://github.com/zdharma-continuum/fast-syntax-highlighting"
-path = "~/.zsh/plugins/fast-syntax-highlighting"
-branch = "main"
-sparse = false
-
-[[extra_repos]]
-url = "https://github.com/zsh-users/zsh-autosuggestions"
-path = "~/.zsh/plugins/zsh-autosuggestions"
+extra_repos:
+  - url: "https://github.com/zdharma-continuum/fast-syntax-highlighting"
+    path: "~/.zsh/plugins/fast-syntax-highlighting"
+    branch: "main"
+    sparse: false
+  - url: "https://github.com/zsh-users/zsh-autosuggestions"
+    path: "~/.zsh/plugins/zsh-autosuggestions"
 
 # Directories to ensure exist
-directories = [
-    "~/dev/personal",
-    "~/dev/work",
-    "~/screenshots",
-    "~/Documents/notes"
-]
+directories:
+  - "~/dev/personal"
+  - "~/dev/work"
+  - "~/screenshots"
+  - "~/Documents/notes"
 
-# Run-once scripts (executed in order)
-run_once = [
-    "scripts/install_homebrew.sh",
-    "scripts/install_1password_cli.sh",
-    "scripts/setup_macos_defaults.sh",
-    "scripts/setup_ssh_keys.sh"
-]
+# Run-once scripts (executed in order, YAML arrays preserve order)
+run_once:
+  - "scripts/install_homebrew.sh"
+  - "scripts/install_1password_cli.sh"
+  - "scripts/setup_macos_defaults.sh"
+  - "scripts/setup_ssh_keys.sh"
 
 # On-change commands (executed when files change)
-on_change = [
-    "brew bundle --file=Brewfile",
-    "mise install --yes"
-]
+on_change:
+  - "brew bundle --file=Brewfile"
+  - "mise install --yes"
 
 # Plugin-specific configuration
-[plugins.git]
-bare_repo_path = "~/.kilt/repo"
-auto_pull = true
-ssh_key = "~/.ssh/id_ed25519"
-
-[plugins.brew]
-brewfile = "Brewfile"
-auto_update = false
-cleanup_after = true
-
-[plugins.onepassword]
-account = "my.1password.com"
-cache_ttl = 3600  # Cache secrets for 1 hour
-
-[plugins.alternates]
-patterns = [
-    "##os.{darwin,linux}",
-    "##hostname.{work,personal}",
-    "##class.{laptop,desktop}"
-]
-
-[plugins.files]
-backup_before_overwrite = true
-use_symlinks = false  # Copy files instead of symlinking
+plugins:
+  git:
+    auto_pull: true
+    ssh_key: "~/.ssh/id_ed25519"
+  
+  brew:
+    brewfile: "Brewfile"
+    auto_update: false
+    cleanup_after: true
+    bundles:
+      - bootstrap
+      - dev
+  
+  onepassword:
+    account: "my.1password.com"
+    cache_ttl: 3600  # Cache secrets for 1 hour
+  
+  alternates:
+    patterns:
+      - "##os.{darwin,linux}"
+      - "##hostname.{work,personal}"
+      - "##class.{laptop,desktop}"
 ```
 
-### Custom Data File (`data.toml`)
+### Custom Data File (`data.yaml`)
 
-```toml
-# ~/.kilt/data.toml
+```yaml
+# ~/.kilt/data.yaml
 # Custom variables for templates
 
-[personal]
-email = "user@example.com"
-github_username = "johndoe"
+personal:
+  email: "user@example.com"
+  github_username: "johndoe"
 
-[work]
-email = "john.doe@company.com"
-github_username = "jdoe-company"
+work:
+  email: "john.doe@company.com"
+  github_username: "jdoe-company"
 
-[paths]
-projects_dir = "~/dev"
-notes_dir = "~/Documents/notes"
+paths:
+  projects_dir: "~/dev"
+  notes_dir: "~/Documents/notes"
 
-[tools]
-editor = "nvim"
-terminal = "kitty"
+tools:
+  editor: "nvim"
+  terminal: "kitty"
 ```
 
 Usage in templates:
@@ -1064,7 +1071,7 @@ func FormatError(err error) string {
     switch {
     case errors.Is(err, ErrConfigNotFound):
         return `Configuration file not found.
-Run 'kilt init <repo-url>' to initialize, or create ~/.kilt/config.toml manually.`
+Run 'kilt init <repo-url>' to initialize, or create ~/.dotfiles/.kilt/config.yaml manually.`
     
     case errors.Is(err, ErrLockTimeout):
         return `Another kilt process is running.
@@ -1165,12 +1172,13 @@ rm -rf $TEST_HOME
 ```
 test/fixtures/
 ├── configs/
-│   ├── minimal.toml
-│   ├── full.toml
-│   └── invalid.toml
+│   ├── minimal.yaml
+│   ├── full.yaml
+│   └── invalid.yaml
 ├── repos/
 │   └── test-dotfiles/
-│       ├── config.toml
+│       ├── .kilt/
+│       │   └── config.yaml
 │       ├── zshrc
 │       └── Brewfile
 └── states/
@@ -1344,7 +1352,7 @@ go tool pprof cpu.prof
 |-----------|-----------|-----------|
 | Language | Go 1.21+ | Fast, single binary, great stdlib |
 | CLI Framework | cobra + pflag | Industry standard, great UX |
-| Config Format | TOML | Order-preserving arrays, human-readable |
+| Config Format | YAML | Order-preserving arrays, human-readable |
 | Template Engine | Go text/template | Stdlib, powerful, familiar |
 | Testing | testify + mockery | Best Go testing ecosystem |
 | Filesystem Mocking | afero | Standard for FS abstraction |
@@ -1358,7 +1366,7 @@ go tool pprof cpu.prof
 require (
     github.com/spf13/cobra v1.8.0
     github.com/spf13/viper v1.18.0  // Optional for advanced config
-    github.com/BurntSushi/toml v1.3.2
+    gopkg.in/yaml.v3 v3.0.1
     github.com/spf13/afero v1.11.0
     github.com/stretchr/testify v1.8.4
     go.uber.org/zap v1.26.0

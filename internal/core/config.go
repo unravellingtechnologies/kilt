@@ -7,38 +7,83 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 // Config represents the main configuration structure
 type Config struct {
-	DataFile       string                 `toml:"data_file"`
-	TemplateEngine string                 `toml:"template_engine"`
-	Files          []FileMapping          `toml:"files"`
-	ExtraRepos     []Repository           `toml:"extra_repos"`
-	Directories    []string               `toml:"directories"`
-	RunOnce        []string               `toml:"run_once"`
-	OnChange       []string               `toml:"on_change"`
-	Plugins        map[string]interface{} `toml:"plugins"`
+	DotfilesRepo   string                 `yaml:"dotfiles_repo"`
+	DotfilesPath   string                 `yaml:"dotfiles_path"`
+	DataFile       string                 `yaml:"data_file"`
+	TemplateEngine string                 `yaml:"template_engine"`
+	Dotfiles       []DotfileEntry         `yaml:"dotfiles"`
+	ExtraRepos     []Repository           `yaml:"extra_repos"`
+	Directories    []string               `yaml:"directories"`
+	RunOnce        []string               `yaml:"run_once"`
+	OnChange       []string               `yaml:"on_change"`
+	Plugins        map[string]interface{} `yaml:"plugins"`
 }
 
-// FileMapping represents a source to target file mapping
-type FileMapping struct {
-	Source   string `toml:"source"`
-	Target   string `toml:"target"`
-	Template bool   `toml:"template"`
-	Mode     string `toml:"mode"` // file permissions (e.g., "0644")
+// DotfileEntry represents a dotfile or directory to sync
+// Supports both simple form (just directory name) and complex form (explicit mapping)
+type DotfileEntry struct {
+	// Directory is the simple form: just a directory name (e.g., "zsh", "git")
+	// When set, all files in this directory are linked to home
+	Directory string `yaml:"directory,omitempty"`
+
+	// Source is for explicit source path mapping
+	Source string `yaml:"source,omitempty"`
+
+	// Target is the explicit target path (default: ~ for directory mode)
+	Target string `yaml:"target,omitempty"`
+
+	// Template indicates if the file should be rendered as a template
+	Template bool `yaml:"template,omitempty"`
+
+	// Mode is the file permissions in octal format (e.g., "0644")
+	Mode string `yaml:"mode,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support both string and map forms
+func (d *DotfileEntry) UnmarshalYAML(node *yaml.Node) error {
+	// Handle simple string form: "- zsh"
+	if node.Kind == yaml.ScalarNode {
+		d.Directory = node.Value
+		return nil
+	}
+
+	// Handle map form: "- source: ..., target: ..."
+	if node.Kind == yaml.MappingNode {
+		type rawDotfileEntry DotfileEntry
+		var raw rawDotfileEntry
+		if err := node.Decode(&raw); err != nil {
+			return err
+		}
+		*d = DotfileEntry(raw)
+		return nil
+	}
+
+	return fmt.Errorf("invalid dotfile entry: expected string or map")
 }
 
 // Repository represents an extra Git repository to clone
 type Repository struct {
-	URL    string `toml:"url"`
-	Path   string `toml:"path"`
-	Branch string `toml:"branch"`
-	Sparse bool   `toml:"sparse"`
+	URL    string `yaml:"url"`
+	Path   string `yaml:"path"`
+	Branch string `yaml:"branch,omitempty"`
+	Sparse bool   `yaml:"sparse,omitempty"`
 }
 
-// LoadConfig loads and parses a TOML configuration file
+// DefaultDotfilesPath returns the default dotfiles repository path
+func DefaultDotfilesPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "~/.dotfiles"
+	}
+	return filepath.Join(homeDir, ".dotfiles")
+}
+
+// LoadConfig loads and parses a YAML configuration file
 func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -46,8 +91,13 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	if _, err := toml.Decode(string(data), &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse TOML config: %w", err)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML config: %w", err)
+	}
+
+	// Set defaults
+	if cfg.DotfilesPath == "" {
+		cfg.DotfilesPath = "~/.dotfiles"
 	}
 
 	// Expand paths after loading
@@ -66,31 +116,46 @@ func LoadConfig(path string) (*Config, error) {
 // FindConfigFile discovers the configuration file in standard locations
 // Returns the path to the config file if found, or an error if not found
 func FindConfigFile() (string, error) {
-	// Check current directory first: .kilt/config.toml
+	// Check current directory first: .kilt/config.yaml
 	cwd, err := os.Getwd()
 	if err == nil {
-		localConfig := filepath.Join(cwd, ".kilt", "config.toml")
+		localConfig := filepath.Join(cwd, ".kilt", "config.yaml")
 		if _, err := os.Stat(localConfig); err == nil {
 			return localConfig, nil
 		}
 	}
 
-	// Check home directory: ~/.kilt/config.toml
+	// Check home directory: ~/.kilt/config.yaml
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	homeConfig := filepath.Join(homeDir, ".kilt", "config.toml")
+	homeConfig := filepath.Join(homeDir, ".kilt", "config.yaml")
 	if _, err := os.Stat(homeConfig); err == nil {
 		return homeConfig, nil
 	}
 
-	return "", fmt.Errorf("config file not found in .kilt/config.toml or ~/.kilt/config.toml")
+	// Check dotfiles directory: ~/.dotfiles/.kilt/config.yaml
+	dotfilesConfig := filepath.Join(homeDir, ".dotfiles", ".kilt", "config.yaml")
+	if _, err := os.Stat(dotfilesConfig); err == nil {
+		return dotfilesConfig, nil
+	}
+
+	return "", fmt.Errorf("config file not found in .kilt/config.yaml, ~/.kilt/config.yaml, or ~/.dotfiles/.kilt/config.yaml")
 }
 
 // ExpandPaths expands ~ and environment variables in all path fields
 func ExpandPaths(cfg *Config) error {
+	// Expand dotfiles path
+	if cfg.DotfilesPath != "" {
+		expanded, err := ExpandPath(cfg.DotfilesPath)
+		if err != nil {
+			return fmt.Errorf("failed to expand dotfiles_path: %w", err)
+		}
+		cfg.DotfilesPath = expanded
+	}
+
 	// Expand data file path
 	if cfg.DataFile != "" {
 		expanded, err := ExpandPath(cfg.DataFile)
@@ -100,19 +165,23 @@ func ExpandPaths(cfg *Config) error {
 		cfg.DataFile = expanded
 	}
 
-	// Expand file mappings
-	for i := range cfg.Files {
-		expanded, err := ExpandPath(cfg.Files[i].Source)
-		if err != nil {
-			return fmt.Errorf("failed to expand file source path: %w", err)
+	// Expand dotfile entries
+	for i := range cfg.Dotfiles {
+		if cfg.Dotfiles[i].Source != "" {
+			expanded, err := ExpandPath(cfg.Dotfiles[i].Source)
+			if err != nil {
+				return fmt.Errorf("failed to expand dotfile source path: %w", err)
+			}
+			cfg.Dotfiles[i].Source = expanded
 		}
-		cfg.Files[i].Source = expanded
 
-		expanded, err = ExpandPath(cfg.Files[i].Target)
-		if err != nil {
-			return fmt.Errorf("failed to expand file target path: %w", err)
+		if cfg.Dotfiles[i].Target != "" {
+			expanded, err := ExpandPath(cfg.Dotfiles[i].Target)
+			if err != nil {
+				return fmt.Errorf("failed to expand dotfile target path: %w", err)
+			}
+			cfg.Dotfiles[i].Target = expanded
 		}
-		cfg.Files[i].Target = expanded
 	}
 
 	// Expand repository paths
@@ -216,19 +285,22 @@ func ValidateConfig(cfg *Config) error {
 		return fmt.Errorf("unsupported template_engine: %s (only 'go' is supported)", cfg.TemplateEngine)
 	}
 
-	// Validate file mappings
-	for i, file := range cfg.Files {
-		if file.Source == "" {
-			return fmt.Errorf("files[%d]: source is required", i)
+	// Validate dotfile entries
+	for i, dotfile := range cfg.Dotfiles {
+		// Must have either Directory or Source set
+		if dotfile.Directory == "" && dotfile.Source == "" {
+			return fmt.Errorf("dotfiles[%d]: must have either directory or source set", i)
 		}
-		if file.Target == "" {
-			return fmt.Errorf("files[%d]: target is required", i)
+
+		// If Source is set, Target is required for explicit mappings
+		if dotfile.Source != "" && dotfile.Target == "" {
+			return fmt.Errorf("dotfiles[%d]: target is required when source is specified", i)
 		}
 
 		// Validate file mode if provided
-		if file.Mode != "" {
-			if !isValidFileMode(file.Mode) {
-				return fmt.Errorf("files[%d]: invalid file mode: %s (must be octal like 0644)", i, file.Mode)
+		if dotfile.Mode != "" {
+			if !isValidFileMode(dotfile.Mode) {
+				return fmt.Errorf("dotfiles[%d]: invalid file mode: %s (must be octal like 0644)", i, dotfile.Mode)
 			}
 		}
 	}
@@ -264,11 +336,6 @@ func ValidateConfig(cfg *Config) error {
 		}
 	}
 
-	// Check for circular dependencies in file mappings
-	if err := checkCircularDependencies(cfg.Files); err != nil {
-		return fmt.Errorf("circular dependency detected: %w", err)
-	}
-
 	return nil
 }
 
@@ -288,26 +355,6 @@ func isValidFileMode(mode string) bool {
 		return matched
 	}
 	return false
-}
-
-// checkCircularDependencies checks for circular dependencies in file mappings
-// This is a simplified check - in a real scenario, we might need to check
-// if any file's target is another file's source, creating a cycle
-func checkCircularDependencies(files []FileMapping) error {
-	// Build a map of targets
-	targets := make(map[string]int)
-	for i, file := range files {
-		targets[file.Target] = i
-	}
-
-	// Check if any source is also a target (potential cycle)
-	for i, file := range files {
-		if targetIdx, exists := targets[file.Source]; exists {
-			return fmt.Errorf("file[%d].source (%s) conflicts with file[%d].target", i, file.Source, targetIdx)
-		}
-	}
-
-	return nil
 }
 
 // GetPluginConfig returns plugin-specific configuration
@@ -333,6 +380,18 @@ func MergeConfigs(base, override *Config) *Config {
 	merged := &Config{}
 
 	// Merge simple fields (override takes precedence)
+	if override.DotfilesRepo != "" {
+		merged.DotfilesRepo = override.DotfilesRepo
+	} else {
+		merged.DotfilesRepo = base.DotfilesRepo
+	}
+
+	if override.DotfilesPath != "" {
+		merged.DotfilesPath = override.DotfilesPath
+	} else {
+		merged.DotfilesPath = base.DotfilesPath
+	}
+
 	if override.DataFile != "" {
 		merged.DataFile = override.DataFile
 	} else {
@@ -346,7 +405,7 @@ func MergeConfigs(base, override *Config) *Config {
 	}
 
 	// Merge slices (append override to base)
-	merged.Files = append(base.Files, override.Files...)
+	merged.Dotfiles = append(base.Dotfiles, override.Dotfiles...)
 	merged.ExtraRepos = append(base.ExtraRepos, override.ExtraRepos...)
 	merged.Directories = append(base.Directories, override.Directories...)
 	merged.RunOnce = append(base.RunOnce, override.RunOnce...)
@@ -373,57 +432,50 @@ func GenerateSchemaDoc() string {
 	var sb strings.Builder
 
 	sb.WriteString("# Kilt Configuration Schema\n\n")
-	sb.WriteString("This document describes the complete TOML configuration schema for Kilt.\n\n")
+	sb.WriteString("This document describes the complete YAML configuration schema for Kilt.\n\n")
 
 	sb.WriteString("## Global Configuration\n\n")
 	sb.WriteString("| Field | Type | Required | Description |\n")
 	sb.WriteString("|-------|------|----------|-------------|\n")
+	sb.WriteString("| `dotfiles_repo` | string | Yes (for init) | Git repository URL for dotfiles |\n")
+	sb.WriteString("| `dotfiles_path` | string | No | Local path to clone dotfiles (default: `~/.dotfiles`) |\n")
 	sb.WriteString("| `data_file` | string | No | Path to custom data file for templates |\n")
 	sb.WriteString("| `template_engine` | string | No | Template engine to use (currently only `\"go\"`) |\n\n")
 
-	sb.WriteString("## File Mappings\n\n")
-	sb.WriteString("File mappings are defined using `[[files]]` array of tables.\n\n")
+	sb.WriteString("## Dotfiles\n\n")
+	sb.WriteString("Dotfiles to sync are defined as a list. Each entry can be:\n")
+	sb.WriteString("- A simple string (directory name): All files in that directory are linked to home\n")
+	sb.WriteString("- A map with explicit source/target mapping\n\n")
+	sb.WriteString("```yaml\ndotfiles:\n  - zsh              # Links all files in zsh/ to ~/\n  - git\n  - source: ssh/config\n    target: ~/.ssh/config\n    mode: \"0600\"\n```\n\n")
+
+	sb.WriteString("### Dotfile Entry Fields\n\n")
 	sb.WriteString("| Field | Type | Required | Description |\n")
 	sb.WriteString("|-------|------|----------|-------------|\n")
-	sb.WriteString("| `source` | string | Yes | Source file path (relative to repo root) |\n")
-	sb.WriteString("| `target` | string | Yes | Target file path (supports `~` expansion) |\n")
+	sb.WriteString("| `directory` | string | No | Directory name to sync (simple form) |\n")
+	sb.WriteString("| `source` | string | No | Explicit source file path |\n")
+	sb.WriteString("| `target` | string | No | Explicit target path (required if source is set) |\n")
 	sb.WriteString("| `template` | boolean | No | Whether to render as template (default: `false`) |\n")
 	sb.WriteString("| `mode` | string | No | File permissions in octal format (e.g., `\"0644\"`) |\n\n")
 
 	sb.WriteString("## Extra Repositories\n\n")
-	sb.WriteString("Extra repositories are defined using `[[extra_repos]]` array of tables.\n\n")
-	sb.WriteString("| Field | Type | Required | Description |\n")
-	sb.WriteString("|-------|------|----------|-------------|\n")
-	sb.WriteString("| `url` | string | Yes | Git repository URL |\n")
-	sb.WriteString("| `path` | string | Yes | Local path to clone to (supports `~` expansion) |\n")
-	sb.WriteString("| `branch` | string | No | Branch to checkout (default: default branch) |\n")
-	sb.WriteString("| `sparse` | boolean | No | Enable sparse checkout (default: `false`) |\n\n")
+	sb.WriteString("Extra repositories to clone.\n\n")
+	sb.WriteString("```yaml\nextra_repos:\n  - url: https://github.com/user/repo\n    path: ~/projects/repo\n    branch: main\n```\n\n")
 
 	sb.WriteString("## Directories\n\n")
-	sb.WriteString("Directories are defined as an array of strings. Each directory will be created if it doesn't exist.\n\n")
-	sb.WriteString("```toml\ndirectories = [\n    \"~/dev/personal\",\n    \"~/dev/work\"\n]\n```\n\n")
+	sb.WriteString("Directories to create if they don't exist.\n\n")
+	sb.WriteString("```yaml\ndirectories:\n  - ~/dev/personal\n  - ~/dev/work\n```\n\n")
 
 	sb.WriteString("## Run Once Scripts\n\n")
-	sb.WriteString("Run once scripts are executed exactly once per machine. Defined as an array of script paths.\n\n")
-	sb.WriteString("```toml\nrun_once = [\n    \"scripts/install_homebrew.sh\",\n    \"scripts/setup_ssh_keys.sh\"\n]\n```\n\n")
+	sb.WriteString("Scripts executed exactly once per machine (order preserved).\n\n")
+	sb.WriteString("```yaml\nrun_once:\n  - scripts/install_homebrew.sh\n  - scripts/setup_ssh_keys.sh\n```\n\n")
 
 	sb.WriteString("## On Change Commands\n\n")
-	sb.WriteString("On change commands are executed when configuration or files change. Defined as an array of command strings.\n\n")
-	sb.WriteString("```toml\non_change = [\n    \"brew bundle --file=Brewfile\",\n    \"mise install --yes\"\n]\n```\n\n")
+	sb.WriteString("Commands executed when files change.\n\n")
+	sb.WriteString("```yaml\non_change:\n  - brew bundle --file=Brewfile\n  - mise install --yes\n```\n\n")
 
 	sb.WriteString("## Plugin Configuration\n\n")
-	sb.WriteString("Plugin-specific configuration is defined using `[plugins.<name>]` sections.\n\n")
-	sb.WriteString("### Example Plugin Configurations\n\n")
-	sb.WriteString("```toml\n[plugins.git]\nbare_repo_path = \"~/.kilt/repo\"\nauto_pull = true\n\n[plugins.brew]\nbrewfile = \"Brewfile\"\nauto_update = false\n\n[plugins.onepassword]\naccount = \"my.1password.com\"\ncache_ttl = 3600\n```\n\n")
-
-	sb.WriteString("## Path Expansion\n\n")
-	sb.WriteString("Kilt supports path expansion in the following ways:\n\n")
-	sb.WriteString("1. **Home directory expansion**: Use `~` or `~/` prefix\n")
-	sb.WriteString("   - `~/.zshrc` expands to `/home/user/.zshrc`\n")
-	sb.WriteString("2. **Environment variables**: Use `${VAR}` or `$VAR` syntax\n")
-	sb.WriteString("   - `${HOME}/config` expands using the `HOME` environment variable\n")
-	sb.WriteString("3. **Combined**: `~/${DEV_DIR}/project` combines both expansions\n\n")
+	sb.WriteString("Plugin-specific configuration.\n\n")
+	sb.WriteString("```yaml\nplugins:\n  git:\n    auto_pull: true\n  brew:\n    bundles:\n      - bootstrap\n      - dev\n```\n\n")
 
 	return sb.String()
 }
-

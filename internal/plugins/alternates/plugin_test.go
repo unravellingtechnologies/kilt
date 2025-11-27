@@ -70,7 +70,7 @@ func TestAlternatesPlugin_Initialize(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 
 	cfg := &core.Config{
-		Files: []core.FileMapping{},
+		Dotfiles: []core.DotfileEntry{},
 	}
 
 	ctx := &plugin.PluginContext{
@@ -140,7 +140,7 @@ func TestAlternatesPlugin_Execute_OSMatch(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 
 	cfg := &core.Config{
-		Files: []core.FileMapping{
+		Dotfiles: []core.DotfileEntry{
 			{
 				Source: "config/config.txt",
 				Target: filepath.Join(tmpDir, "target.txt"),
@@ -180,8 +180,8 @@ func TestAlternatesPlugin_Execute_OSMatch(t *testing.T) {
 		expectedSource = "config/config.linux.txt"
 	}
 
-	if cfg.Files[0].Source != expectedSource {
-		t.Errorf("Source = %v, want %v", cfg.Files[0].Source, expectedSource)
+	if cfg.Dotfiles[0].Source != expectedSource {
+		t.Errorf("Source = %v, want %v", cfg.Dotfiles[0].Source, expectedSource)
 	}
 
 	// Verify change was recorded
@@ -233,7 +233,7 @@ func TestAlternatesPlugin_Execute_HostnameMatch(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 
 	cfg := &core.Config{
-		Files: []core.FileMapping{
+		Dotfiles: []core.DotfileEntry{
 			{
 				Source: "config/config.txt",
 				Target: filepath.Join(tmpDir, "target.txt"),
@@ -269,8 +269,8 @@ func TestAlternatesPlugin_Execute_HostnameMatch(t *testing.T) {
 
 	// Verify source was updated to hostname-specific file
 	expectedSource := "config/config." + hostname + "@work.txt"
-	if cfg.Files[0].Source != expectedSource {
-		t.Errorf("Source = %v, want %v", cfg.Files[0].Source, expectedSource)
+	if cfg.Dotfiles[0].Source != expectedSource {
+		t.Errorf("Source = %v, want %v", cfg.Dotfiles[0].Source, expectedSource)
 	}
 }
 
@@ -328,7 +328,7 @@ func TestAlternatesPlugin_Execute_Priority(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 
 	cfg := &core.Config{
-		Files: []core.FileMapping{
+		Dotfiles: []core.DotfileEntry{
 			{
 				Source: "config/config.txt",
 				Target: filepath.Join(tmpDir, "target.txt"),
@@ -364,8 +364,8 @@ func TestAlternatesPlugin_Execute_Priority(t *testing.T) {
 
 	// Verify hostname-specific file was selected (higher priority)
 	expectedSource := "config/config." + hostname + "@work.txt"
-	if cfg.Files[0].Source != expectedSource {
-		t.Errorf("Source = %v, want %v (hostname should win over OS)", cfg.Files[0].Source, expectedSource)
+	if cfg.Dotfiles[0].Source != expectedSource {
+		t.Errorf("Source = %v, want %v (hostname should win over OS)", cfg.Dotfiles[0].Source, expectedSource)
 	}
 }
 
@@ -405,7 +405,7 @@ func TestAlternatesPlugin_Execute_NoAlternates(t *testing.T) {
 
 	originalSource := "config/config.txt"
 	cfg := &core.Config{
-		Files: []core.FileMapping{
+		Dotfiles: []core.DotfileEntry{
 			{
 				Source: originalSource,
 				Target: filepath.Join(tmpDir, "target.txt"),
@@ -440,8 +440,8 @@ func TestAlternatesPlugin_Execute_NoAlternates(t *testing.T) {
 	}
 
 	// Verify source was not changed (no alternates found)
-	if cfg.Files[0].Source != originalSource {
-		t.Errorf("Source = %v, want %v (should remain unchanged)", cfg.Files[0].Source, originalSource)
+	if cfg.Dotfiles[0].Source != originalSource {
+		t.Errorf("Source = %v, want %v (should remain unchanged)", cfg.Dotfiles[0].Source, originalSource)
 	}
 
 	// Verify no changes were recorded
@@ -491,7 +491,7 @@ func TestAlternatesPlugin_Execute_ArchitectureMatch(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 
 	cfg := &core.Config{
-		Files: []core.FileMapping{
+		Dotfiles: []core.DotfileEntry{
 			{
 				Source: "config/config.txt",
 				Target: filepath.Join(tmpDir, "target.txt"),
@@ -527,8 +527,74 @@ func TestAlternatesPlugin_Execute_ArchitectureMatch(t *testing.T) {
 
 	// Verify source was updated to architecture-specific file
 	expectedSource := "config/config." + runtime.GOARCH + ".txt"
-	if cfg.Files[0].Source != expectedSource {
-		t.Errorf("Source = %v, want %v", cfg.Files[0].Source, expectedSource)
+	if cfg.Dotfiles[0].Source != expectedSource {
+		t.Errorf("Source = %v, want %v", cfg.Dotfiles[0].Source, expectedSource)
 	}
 }
 
+func TestAlternatesPlugin_Execute_SkipsDirectoryMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	workDir := filepath.Join(tmpDir, "repo")
+	if err := os.MkdirAll(workDir, 0755); err != nil {
+		t.Fatalf("Failed to create work dir: %v", err)
+	}
+
+	stateDir := filepath.Join(tmpDir, ".kilt", "state")
+	state, err := core.NewStateManager(stateDir)
+	if err != nil {
+		t.Fatalf("Failed to create state manager: %v", err)
+	}
+
+	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
+	backup, err := core.NewBackupManager(backupDir)
+	if err != nil {
+		t.Fatalf("Failed to create backup manager: %v", err)
+	}
+
+	template := core.NewTemplateEngine()
+	homeDir, _ := os.UserHomeDir()
+
+	// Use directory mode entry (no Source set)
+	cfg := &core.Config{
+		Dotfiles: []core.DotfileEntry{
+			{Directory: "zsh"},
+			{Directory: "git"},
+		},
+	}
+
+	ctx := &plugin.PluginContext{
+		Config:   cfg,
+		State:    state,
+		Backup:   backup,
+		Template: template,
+		Logger:   &mockLogger{},
+		DryRun:   false,
+		WorkDir:  workDir,
+		HomeDir:  homeDir,
+	}
+
+	p := &AlternatesPlugin{}
+	if err := p.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize() error = %v, want nil", err)
+	}
+
+	execCtx := &plugin.ExecutionContext{
+		PluginContext: ctx,
+		Changes:       make([]plugin.Change, 0),
+		Errors:        make([]error, 0),
+	}
+
+	if err := p.Execute(execCtx); err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+
+	// Verify no changes were made (directory entries are skipped)
+	if len(execCtx.Changes) != 0 {
+		t.Errorf("Expected 0 changes for directory-mode entries, got %d", len(execCtx.Changes))
+	}
+
+	// Verify entries remain unchanged
+	if cfg.Dotfiles[0].Directory != "zsh" {
+		t.Errorf("Directory[0] = %v, want 'zsh'", cfg.Dotfiles[0].Directory)
+	}
+}

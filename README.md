@@ -39,9 +39,10 @@ Secrets are never stored in Git. Use 1Password CLI integration to inject secrets
 
 ### 🧩 Plugin Architecture
 Extensible plugin system allows modular feature additions:
-- **Files Plugin** ✅: File placement with source → target mapping, symlink support, template rendering, and permission preservation
-- **Alternates Plugin**: OS/hostname-based file selection
-- **Directories Plugin**: Ensure directories exist with proper permissions
+- **Dotfiles Plugin** ✅: Symlink-based dotfile synchronization with directory support and smart dot-prefixing
+- **Git Plugin** ✅: Bidirectional Git synchronization (pull remote changes, push local changes)
+- **Alternates Plugin** ✅: OS/hostname-based file selection for explicit dotfile mappings
+- **Directories Plugin** ✅: Ensure directories exist with proper permissions
 - **Run Once Plugin**: Execute bootstrap scripts exactly once
 - **On Change Plugin**: Run commands when files change
 - **Git Plugin**: Manage bare repository and clone extra repos
@@ -118,74 +119,99 @@ See `make help` for all available targets.
 
 ## Configuration
 
-Kilt uses TOML configuration files. Create a `config.toml` in your dotfiles repository:
+Kilt uses YAML configuration files. Create a `config.yaml` in your dotfiles repository:
 
-```toml
-# Example configuration
+```yaml
+# Dotfiles repository (required for kilt init)
+dotfiles_repo: "https://github.com/user/dotfiles"
+dotfiles_path: "~/.dotfiles"  # default
 
-# File mappings - core feature for placing files
-[[files]]
-source = "zsh/zshrc"
-target = "~/.zshrc"
-template = false
-mode = "0644"
+# Template data
+data_file: data.yaml
+template_engine: go
 
-[[files]]
-source = "gitconfig.tmpl"
-target = "~/.gitconfig"
-template = true
-mode = "0644"
+# Dotfiles to sync (symlinks from repo to ~)
+dotfiles:
+  - zsh              # Links all files in zsh/ to ~/
+  - git              # Links all files in git/ to ~/
+  - vim
+  # Explicit mapping for special cases
+  - source: ssh/config
+    target: ~/.ssh/config
+    mode: "0600"
+    template: true
 
-# Files Plugin configuration
-[plugins.files]
-# Create symlinks instead of copying files (default: false)
-create_symlinks = false
-# Preserve file permissions from source (default: true)
-preserve_permissions = true
+# Additional directories to create
+directories:
+  - ~/dev/personal
+  - ~/dev/work
 
-directories = [
-    "~/dev/personal",
-    "~/dev/work"
-]
+# Run-once scripts (order preserved)
+run_once:
+  - scripts/install_homebrew.sh
+  - scripts/setup_macos.sh
 
-run_once = [
-    "scripts/install_homebrew.sh"
-]
+# Brew bundles (order preserved)
+plugins:
+  brew:
+    bundles:
+      - bootstrap    # expects brew/bootstrap file
+      - dev          # expects brew/dev file
 ```
 
-### Files Plugin
+### Dotfiles Plugin
 
-The Files Plugin is the core plugin for managing file placement. It supports:
+The Dotfiles Plugin is the core plugin for managing dotfile synchronization. It supports:
 
-- **File copying**: Copy files from repository to target locations
-- **Symlink creation**: Optionally create symlinks instead of copying (configure via `create_symlinks`)
-- **Template rendering**: Automatically render Go templates when `template = true`
-- **Permission preservation**: Preserve source file permissions or set explicit permissions via `mode`
+- **Directory-based syncing**: Link all files in a directory to your home directory
+- **Symlink creation**: Creates symlinks (not copies) by default for all dotfiles
+- **Smart dot-prefixing**: Automatically adds `.` prefix to common dotfile names (e.g., `zshrc` → `~/.zshrc`)
+- **Template rendering**: For explicit mappings, render Go templates when `template = true`
+- **Permission control**: Set explicit file permissions via `mode` for special cases
 - **Automatic backups**: Existing files are automatically backed up before modification
 - **Idempotency**: Skips unchanged files based on checksum comparison
 - **Dry-run support**: Preview changes without modifying filesystem
 
-**File Mapping Fields**:
-- `source` (required): Path to source file relative to repository root
-- `target` (required): Target path (supports `~` expansion and environment variables)
-- `template` (optional): Whether to render as template (default: `false`)
-- `mode` (optional): File permissions in octal format (e.g., `"0644"`, `"0755"`)
+**Dotfile Entry Formats**:
 
-**Plugin Configuration**:
-- `create_symlinks` (optional): Create symlinks instead of copying (default: `false`)
-- `preserve_permissions` (optional): Preserve permissions from source file (default: `true`)
+1. **Simple form** (directory name):
+   ```yaml
+   dotfiles:
+     - zsh    # Links all files in zsh/ to ~/
+     - git
+   ```
+
+2. **Explicit mapping** (source/target):
+   ```yaml
+   dotfiles:
+     - source: ssh/config
+       target: ~/.ssh/config
+       mode: "0600"
+       template: true
+   ```
+
+**Dotfile Entry Fields**:
+- `directory` (optional): Directory name to sync (simple form)
+- `source` (optional): Explicit source file path relative to dotfiles repo
+- `target` (optional): Explicit target path (required if source is set)
+- `template` (optional): Whether to render as template (default: `false`)
+- `mode` (optional): File permissions in octal format (e.g., `"0644"`, `"0600"`)
+
+**Note**: For template files, the rendered content is written (not symlinked) to ensure templates are always up-to-date.
 
 See [architecture.md](architecture.md) for the complete configuration schema.
 
 ## Commands
 
 - `kilt init <repo-url>` — Initialize from Git repository
-  - Clones the repository as a bare repo to `~/.kilt/repo`
+  - Clones the repository to `~/.dotfiles` (configurable via `dotfiles_path`)
+  - Reads configuration from `~/.dotfiles/.kilt/config.yaml`
   - Sets up the `.kilt` directory structure
-- `kilt sync` — Pull latest and apply changes
-  - Fetches latest changes from the remote repository
+- `kilt sync` — Synchronize dotfiles bidirectionally
+  - **Git synchronization**: Automatically pulls remote changes and pushes local changes
+  - Handles conflicts gracefully (alerts user if manual resolution needed)
   - Loads and validates configuration
-  - Executes plugins in the correct order (when engine is ready)
+  - Executes plugins in the correct order to sync dotfiles
 - `kilt doctor` — Validate setup and dependencies
   - Checks repository initialization
   - Validates configuration file

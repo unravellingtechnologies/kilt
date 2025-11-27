@@ -105,41 +105,6 @@ func TestTemplateEngine_RenderString_CustomData(t *testing.T) {
 	}
 }
 
-func TestTemplateEngine_LoadCustomData_TOML(t *testing.T) {
-	te := NewTemplateEngine()
-
-	// Create temporary TOML file
-	tmpDir := t.TempDir()
-	tomlFile := filepath.Join(tmpDir, "data.toml")
-	tomlContent := `name = "TestUser"
-email = "test@example.com"
-[settings]
-theme = "dark"
-`
-	if err := os.WriteFile(tomlFile, []byte(tomlContent), 0644); err != nil {
-		t.Fatalf("Failed to write TOML file: %v", err)
-	}
-
-	// Load custom data
-	if err := te.LoadCustomData(tomlFile); err != nil {
-		t.Fatalf("LoadCustomData failed: %v", err)
-	}
-
-	// Verify data was loaded
-	if te.customData["name"] != "TestUser" {
-		t.Errorf("Expected name to be 'TestUser', got: %v", te.customData["name"])
-	}
-
-	// Test nested data
-	settings, ok := te.customData["settings"].(map[string]interface{})
-	if !ok {
-		t.Fatal("Expected settings to be a map")
-	}
-	if settings["theme"] != "dark" {
-		t.Errorf("Expected theme to be 'dark', got: %v", settings["theme"])
-	}
-}
-
 func TestTemplateEngine_LoadCustomData_YAML(t *testing.T) {
 	te := NewTemplateEngine()
 
@@ -180,7 +145,7 @@ func TestTemplateEngine_LoadCustomData_InvalidFormat(t *testing.T) {
 func TestTemplateEngine_LoadCustomData_NonExistentFile(t *testing.T) {
 	te := NewTemplateEngine()
 
-	if err := te.LoadCustomData("/nonexistent/file.toml"); err == nil {
+	if err := te.LoadCustomData("/nonexistent/file.yaml"); err == nil {
 		t.Error("Expected error for non-existent file")
 	}
 }

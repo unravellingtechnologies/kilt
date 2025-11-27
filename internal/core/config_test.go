@@ -10,47 +10,41 @@ import (
 func TestLoadConfig(t *testing.T) {
 	// Create a temporary directory for test config
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.toml")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
-	// Write a valid config file
-	// Note: Root-level arrays must come before array-of-tables to avoid TOML parsing issues
+	// Write a valid YAML config file
 	configContent := `
-data_file = "data.toml"
-template_engine = "go"
+data_file: "data.yaml"
+template_engine: "go"
+dotfiles_repo: "https://github.com/test/dotfiles"
+dotfiles_path: "~/.dotfiles"
 
-directories = [
-    "~/dev/personal",
-    "~/dev/work"
-]
+dotfiles:
+  - zsh
+  - git
+  - source: ssh/config
+    target: ~/.ssh/config
+    mode: "0600"
+    template: true
 
-run_once = [
-    "scripts/install.sh"
-]
+extra_repos:
+  - url: "https://github.com/test/repo"
+    path: "~/.test/repo"
+    branch: "main"
 
-on_change = [
-    "brew bundle"
-]
+directories:
+  - "~/dev/personal"
+  - "~/dev/work"
 
-[[files]]
-source = "zsh/zshrc"
-target = "~/.zshrc"
-template = false
-mode = "0644"
+run_once:
+  - "scripts/install.sh"
 
-[[files]]
-source = "gitconfig.tmpl"
-target = "~/.gitconfig"
-template = true
-mode = "0644"
+on_change:
+  - "brew bundle"
 
-[[extra_repos]]
-url = "https://github.com/test/repo"
-path = "~/.test/repo"
-branch = "main"
-sparse = false
-
-[plugins.test]
-key = "value"
+plugins:
+  test:
+    key: "value"
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -69,8 +63,24 @@ key = "value"
 		t.Errorf("LoadConfig() TemplateEngine = %v, want 'go'", cfg.TemplateEngine)
 	}
 
-	if len(cfg.Files) != 2 {
-		t.Errorf("LoadConfig() Files length = %d, want 2", len(cfg.Files))
+	if cfg.DotfilesRepo != "https://github.com/test/dotfiles" {
+		t.Errorf("LoadConfig() DotfilesRepo = %v, want 'https://github.com/test/dotfiles'", cfg.DotfilesRepo)
+	}
+
+	if len(cfg.Dotfiles) != 3 {
+		t.Errorf("LoadConfig() Dotfiles length = %d, want 3", len(cfg.Dotfiles))
+	}
+
+	// Check simple form (directory name)
+	if cfg.Dotfiles[0].Directory != "zsh" {
+		t.Errorf("LoadConfig() Dotfiles[0].Directory = %v, want 'zsh'", cfg.Dotfiles[0].Directory)
+	}
+
+	// Check complex form (source/target mapping)
+	homeDir, _ := os.UserHomeDir()
+	expectedTarget := filepath.Join(homeDir, ".ssh", "config")
+	if cfg.Dotfiles[2].Target != expectedTarget {
+		t.Errorf("LoadConfig() Dotfiles[2].Target = %v, want %v", cfg.Dotfiles[2].Target, expectedTarget)
 	}
 
 	if len(cfg.ExtraRepos) != 1 {
@@ -88,28 +98,21 @@ key = "value"
 	if len(cfg.OnChange) != 1 {
 		t.Errorf("LoadConfig() OnChange length = %d, want 1", len(cfg.OnChange))
 	}
-
-	// Check that paths were expanded
-	homeDir, _ := os.UserHomeDir()
-	expectedTarget := filepath.Join(homeDir, ".zshrc")
-	if cfg.Files[0].Target != expectedTarget {
-		t.Errorf("LoadConfig() Files[0].Target = %v, want %v", cfg.Files[0].Target, expectedTarget)
-	}
 }
 
 func TestLoadConfig_InvalidFile(t *testing.T) {
-	_, err := LoadConfig("/nonexistent/config.toml")
+	_, err := LoadConfig("/nonexistent/config.yaml")
 	if err == nil {
 		t.Error("LoadConfig() should return error for nonexistent file")
 	}
 }
 
-func TestLoadConfig_InvalidTOML(t *testing.T) {
+func TestLoadConfig_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.toml")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	invalidContent := `
-[invalid toml
+invalid: yaml: content: [
 `
 	if err := os.WriteFile(configPath, []byte(invalidContent), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -117,7 +120,7 @@ func TestLoadConfig_InvalidTOML(t *testing.T) {
 
 	_, err := LoadConfig(configPath)
 	if err == nil {
-		t.Error("LoadConfig() should return error for invalid TOML")
+		t.Error("LoadConfig() should return error for invalid YAML")
 	}
 }
 
@@ -133,7 +136,7 @@ func TestFindConfigFile(t *testing.T) {
 		t.Fatalf("Failed to create .kilt directory: %v", err)
 	}
 
-	configPath := filepath.Join(kiltDir, "config.toml")
+	configPath := filepath.Join(kiltDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte("# test config"), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
@@ -163,13 +166,13 @@ func TestFindConfigFile_HomeDir(t *testing.T) {
 		t.Fatalf("Failed to create .kilt directory: %v", err)
 	}
 
-	configPath := filepath.Join(kiltDir, "config.toml")
+	configPath := filepath.Join(kiltDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte("# test config"), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 	defer os.Remove(configPath)
 
-	// Change to a directory without .kilt/config.toml
+	// Change to a directory without .kilt/config.yaml
 	tmpDir := t.TempDir()
 	os.Chdir(tmpDir)
 	defer os.Chdir("/")
@@ -192,8 +195,10 @@ func TestFindConfigFile_NotFound(t *testing.T) {
 
 	// Remove home config if it exists
 	homeDir, _ := os.UserHomeDir()
-	homeConfig := filepath.Join(homeDir, ".kilt", "config.toml")
+	homeConfig := filepath.Join(homeDir, ".kilt", "config.yaml")
 	os.Remove(homeConfig)
+	dotfilesConfig := filepath.Join(homeDir, ".dotfiles", ".kilt", "config.yaml")
+	os.Remove(dotfilesConfig)
 
 	_, err := FindConfigFile()
 	if err == nil {
@@ -280,8 +285,9 @@ func TestExpandPaths(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 
 	cfg := &Config{
-		DataFile: "~/data.toml",
-		Files: []FileMapping{
+		DotfilesPath: "~/.dotfiles",
+		DataFile:     "~/data.yaml",
+		Dotfiles: []DotfileEntry{
 			{Source: "source", Target: "~/.target"},
 		},
 		ExtraRepos: []Repository{
@@ -296,12 +302,16 @@ func TestExpandPaths(t *testing.T) {
 		t.Fatalf("ExpandPaths() error = %v, want nil", err)
 	}
 
-	if cfg.DataFile != filepath.Join(homeDir, "data.toml") {
-		t.Errorf("ExpandPaths() DataFile = %v, want %v", cfg.DataFile, filepath.Join(homeDir, "data.toml"))
+	if cfg.DotfilesPath != filepath.Join(homeDir, ".dotfiles") {
+		t.Errorf("ExpandPaths() DotfilesPath = %v, want %v", cfg.DotfilesPath, filepath.Join(homeDir, ".dotfiles"))
 	}
 
-	if cfg.Files[0].Target != filepath.Join(homeDir, ".target") {
-		t.Errorf("ExpandPaths() Files[0].Target = %v, want %v", cfg.Files[0].Target, filepath.Join(homeDir, ".target"))
+	if cfg.DataFile != filepath.Join(homeDir, "data.yaml") {
+		t.Errorf("ExpandPaths() DataFile = %v, want %v", cfg.DataFile, filepath.Join(homeDir, "data.yaml"))
+	}
+
+	if cfg.Dotfiles[0].Target != filepath.Join(homeDir, ".target") {
+		t.Errorf("ExpandPaths() Dotfiles[0].Target = %v, want %v", cfg.Dotfiles[0].Target, filepath.Join(homeDir, ".target"))
 	}
 
 	if cfg.ExtraRepos[0].Path != filepath.Join(homeDir, "repo") {
@@ -316,11 +326,12 @@ func TestValidateConfig(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid config",
+			name: "valid config with directory entries",
 			cfg: &Config{
 				TemplateEngine: "go",
-				Files: []FileMapping{
-					{Source: "source", Target: "target"},
+				Dotfiles: []DotfileEntry{
+					{Directory: "zsh"},
+					{Directory: "git"},
 				},
 				ExtraRepos: []Repository{
 					{URL: "https://test.com", Path: "path"},
@@ -332,6 +343,15 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid config with source/target entries",
+			cfg: &Config{
+				Dotfiles: []DotfileEntry{
+					{Source: "ssh/config", Target: "~/.ssh/config"},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid template engine",
 			cfg: &Config{
 				TemplateEngine: "invalid",
@@ -339,19 +359,19 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty file source",
+			name: "empty dotfile entry",
 			cfg: &Config{
-				Files: []FileMapping{
-					{Source: "", Target: "target"},
+				Dotfiles: []DotfileEntry{
+					{}, // Neither Directory nor Source set
 				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "empty file target",
+			name: "source without target",
 			cfg: &Config{
-				Files: []FileMapping{
-					{Source: "source", Target: ""},
+				Dotfiles: []DotfileEntry{
+					{Source: "source/file"}, // Target missing
 				},
 			},
 			wantErr: true,
@@ -359,7 +379,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "invalid file mode",
 			cfg: &Config{
-				Files: []FileMapping{
+				Dotfiles: []DotfileEntry{
 					{Source: "source", Target: "target", Mode: "invalid"},
 				},
 			},
@@ -368,7 +388,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "valid file mode",
 			cfg: &Config{
-				Files: []FileMapping{
+				Dotfiles: []DotfileEntry{
 					{Source: "source", Target: "target", Mode: "0644"},
 				},
 			},
@@ -410,16 +430,6 @@ func TestValidateConfig(t *testing.T) {
 			name: "empty on_change",
 			cfg: &Config{
 				OnChange: []string{""},
-			},
-			wantErr: true,
-		},
-		{
-			name: "circular dependency",
-			cfg: &Config{
-				Files: []FileMapping{
-					{Source: "source1", Target: "target1"},
-					{Source: "target1", Target: "target2"},
-				},
 			},
 			wantErr: true,
 		},
@@ -505,10 +515,12 @@ func TestGetPluginConfig(t *testing.T) {
 
 func TestMergeConfigs(t *testing.T) {
 	base := &Config{
-		DataFile:       "base_data.toml",
+		DotfilesRepo:   "https://github.com/base/dotfiles",
+		DotfilesPath:   "~/.base_dotfiles",
+		DataFile:       "base_data.yaml",
 		TemplateEngine: "go",
-		Files: []FileMapping{
-			{Source: "base1", Target: "target1"},
+		Dotfiles: []DotfileEntry{
+			{Directory: "base_zsh"},
 		},
 		ExtraRepos: []Repository{
 			{URL: "https://base.com", Path: "base_path"},
@@ -522,10 +534,11 @@ func TestMergeConfigs(t *testing.T) {
 	}
 
 	override := &Config{
-		DataFile:       "override_data.toml",
+		DotfilesRepo:   "https://github.com/override/dotfiles",
+		DataFile:       "override_data.yaml",
 		TemplateEngine: "",
-		Files: []FileMapping{
-			{Source: "override1", Target: "override_target1"},
+		Dotfiles: []DotfileEntry{
+			{Directory: "override_git"},
 		},
 		ExtraRepos: []Repository{
 			{URL: "https://override.com", Path: "override_path"},
@@ -540,16 +553,24 @@ func TestMergeConfigs(t *testing.T) {
 
 	merged := MergeConfigs(base, override)
 
-	if merged.DataFile != "override_data.toml" {
-		t.Errorf("MergeConfigs() DataFile = %v, want 'override_data.toml'", merged.DataFile)
+	if merged.DotfilesRepo != "https://github.com/override/dotfiles" {
+		t.Errorf("MergeConfigs() DotfilesRepo = %v, want 'https://github.com/override/dotfiles'", merged.DotfilesRepo)
+	}
+
+	if merged.DotfilesPath != "~/.base_dotfiles" {
+		t.Errorf("MergeConfigs() DotfilesPath = %v, want '~/.base_dotfiles'", merged.DotfilesPath)
+	}
+
+	if merged.DataFile != "override_data.yaml" {
+		t.Errorf("MergeConfigs() DataFile = %v, want 'override_data.yaml'", merged.DataFile)
 	}
 
 	if merged.TemplateEngine != "go" {
 		t.Errorf("MergeConfigs() TemplateEngine = %v, want 'go'", merged.TemplateEngine)
 	}
 
-	if len(merged.Files) != 2 {
-		t.Errorf("MergeConfigs() Files length = %d, want 2", len(merged.Files))
+	if len(merged.Dotfiles) != 2 {
+		t.Errorf("MergeConfigs() Dotfiles length = %d, want 2", len(merged.Dotfiles))
 	}
 
 	if len(merged.ExtraRepos) != 2 {
@@ -588,13 +609,12 @@ func TestGenerateSchemaDoc(t *testing.T) {
 	expectedSections := []string{
 		"# Kilt Configuration Schema",
 		"## Global Configuration",
-		"## File Mappings",
+		"## Dotfiles",
 		"## Extra Repositories",
 		"## Directories",
 		"## Run Once Scripts",
 		"## On Change Commands",
 		"## Plugin Configuration",
-		"## Path Expansion",
 	}
 
 	for _, section := range expectedSections {
@@ -610,8 +630,8 @@ func TestExpandPaths_PluginPaths(t *testing.T) {
 	cfg := &Config{
 		Plugins: map[string]interface{}{
 			"test": map[string]interface{}{
-				"path1": "~/plugin_path1",
-				"path2": "${HOME}/plugin_path2",
+				"path1":    "~/plugin_path1",
+				"path2":    "${HOME}/plugin_path2",
 				"non_path": "regular_value",
 			},
 		},
@@ -632,42 +652,75 @@ func TestExpandPaths_PluginPaths(t *testing.T) {
 	}
 }
 
-func TestCheckCircularDependencies(t *testing.T) {
-	tests := []struct {
-		name    string
-		files   []FileMapping
-		wantErr bool
-	}{
-		{
-			name: "no circular dependency",
-			files: []FileMapping{
-				{Source: "source1", Target: "target1"},
-				{Source: "source2", Target: "target2"},
-			},
-			wantErr: false,
-		},
-		{
-			name: "circular dependency",
-			files: []FileMapping{
-				{Source: "source1", Target: "target1"},
-				{Source: "target1", Target: "target2"},
-			},
-			wantErr: true,
-		},
-		{
-			name:    "empty files",
-			files:   []FileMapping{},
-			wantErr: false,
-		},
+func TestDotfileEntry_UnmarshalYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Test simple string form
+	configPath := filepath.Join(tmpDir, "config1.yaml")
+	configContent := `
+dotfiles:
+  - zsh
+  - git
+  - vim
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := checkCircularDependencies(tt.files)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("checkCircularDependencies() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+
+	if len(cfg.Dotfiles) != 3 {
+		t.Fatalf("Expected 3 dotfiles, got %d", len(cfg.Dotfiles))
+	}
+
+	if cfg.Dotfiles[0].Directory != "zsh" {
+		t.Errorf("Dotfiles[0].Directory = %v, want 'zsh'", cfg.Dotfiles[0].Directory)
+	}
+
+	// Test map form
+	configPath2 := filepath.Join(tmpDir, "config2.yaml")
+	configContent2 := `
+dotfiles:
+  - source: ssh/config
+    target: ~/.ssh/config
+    mode: "0600"
+    template: true
+`
+	if err := os.WriteFile(configPath2, []byte(configContent2), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	cfg2, err := LoadConfig(configPath2)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+
+	if len(cfg2.Dotfiles) != 1 {
+		t.Fatalf("Expected 1 dotfile, got %d", len(cfg2.Dotfiles))
+	}
+
+	if cfg2.Dotfiles[0].Source != "ssh/config" {
+		t.Errorf("Dotfiles[0].Source = %v, want 'ssh/config'", cfg2.Dotfiles[0].Source)
+	}
+
+	if cfg2.Dotfiles[0].Mode != "0600" {
+		t.Errorf("Dotfiles[0].Mode = %v, want '0600'", cfg2.Dotfiles[0].Mode)
+	}
+
+	if !cfg2.Dotfiles[0].Template {
+		t.Error("Dotfiles[0].Template should be true")
 	}
 }
 
+func TestDefaultDotfilesPath(t *testing.T) {
+	path := DefaultDotfilesPath()
+	homeDir, _ := os.UserHomeDir()
+	expected := filepath.Join(homeDir, ".dotfiles")
+
+	if path != expected {
+		t.Errorf("DefaultDotfilesPath() = %v, want %v", path, expected)
+	}
+}
