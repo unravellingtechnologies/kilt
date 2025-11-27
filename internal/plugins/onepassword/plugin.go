@@ -1,0 +1,358 @@
+package onepassword
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/unravelling/kilt/internal/core"
+	"github.com/unravelling/kilt/internal/plugin"
+)
+
+// OnePasswordPlugin handles 1Password CLI integration for secret injection
+type OnePasswordPlugin struct {
+	ctx          *plugin.PluginContext
+	opPath       string
+	account      string
+	vault        string
+	cacheEnabled bool
+	cacheTTL     time.Duration
+	cache        map[string]cacheEntry
+	cacheMu      sync.RWMutex
+	authenticated bool
+}
+
+// cacheEntry represents a cached secret with expiration
+type cacheEntry struct {
+	value      string
+	expiresAt  time.Time
+}
+
+func init() {
+	plugin.RegisterPlugin(&OnePasswordPlugin{})
+}
+
+// Name returns the plugin name
+func (p *OnePasswordPlugin) Name() string {
+	return "onepassword"
+}
+
+// Version returns the plugin version
+func (p *OnePasswordPlugin) Version() string {
+	return "1.0.0"
+}
+
+// Description returns the plugin description
+func (p *OnePasswordPlugin) Description() string {
+	return "1Password CLI integration for secret injection in templates"
+}
+
+// Dependencies returns plugin dependencies
+func (p *OnePasswordPlugin) Dependencies() []string {
+	return []string{}
+}
+
+// Phase returns the execution phase
+func (p *OnePasswordPlugin) Phase() plugin.ExecutionPhase {
+	// This plugin runs early to register template function before templates are rendered
+	return plugin.PhasePreSync
+}
+
+// Initialize initializes the plugin with context
+func (p *OnePasswordPlugin) Initialize(ctx *plugin.PluginContext) error {
+	p.ctx = ctx
+	p.account = ""
+	p.vault = ""
+	p.cacheEnabled = true
+	p.cacheTTL = 5 * time.Minute // Default 5 minute cache TTL
+	p.cache = make(map[string]cacheEntry)
+	p.authenticated = false
+
+	// Get plugin-specific configuration
+	config := plugin.GetPluginConfig(ctx.Config, p.Name())
+	if config != nil {
+		// Parse account
+		if account, ok := config["account"].(string); ok {
+			p.account = account
+		}
+
+		// Parse vault
+		if vault, ok := config["vault"].(string); ok {
+			p.vault = vault
+		}
+
+		// Parse cache_enabled flag
+		if cacheEnabled, ok := config["cache_enabled"].(bool); ok {
+			p.cacheEnabled = cacheEnabled
+		}
+
+		// Parse cache_ttl
+		if cacheTTLStr, ok := config["cache_ttl"].(string); ok {
+			duration, err := time.ParseDuration(cacheTTLStr)
+			if err != nil {
+				return fmt.Errorf("invalid cache_ttl: %s (must be a valid duration like '5m', '30s'): %w", cacheTTLStr, err)
+			}
+			p.cacheTTL = duration
+		}
+	}
+
+	// Find 1Password CLI
+	opPath, err := p.findOP()
+	if err != nil {
+		// 1Password CLI not found - plugin will still register but will return errors
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Warn("1Password CLI (op) not found, op template function will not work", "error", err)
+		}
+		p.opPath = ""
+	} else {
+		p.opPath = opPath
+		// Check authentication status
+		if err := p.checkAuthentication(); err != nil {
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("1Password CLI not authenticated, op template function will not work", "error", err)
+			}
+		} else {
+			p.authenticated = true
+		}
+	}
+
+	// Register the op function with the template engine
+	// Cast TemplateEngine interface to concrete type to access RegisterOPFunction
+	if templateEngine, ok := ctx.Template.(*core.TemplateEngine); ok {
+		templateEngine.RegisterOPFunction(p.getSecret)
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Info("1Password template function registered")
+		}
+	} else {
+		return fmt.Errorf("failed to register 1Password function: invalid template engine type")
+	}
+
+	return nil
+}
+
+// Validate validates the plugin configuration
+func (p *OnePasswordPlugin) Validate() error {
+	if p.ctx == nil {
+		return fmt.Errorf("plugin context not initialized")
+	}
+
+	// If op CLI is not installed, that's okay - plugin will return errors when used
+	if p.opPath == "" {
+		return nil
+	}
+
+	// If not authenticated, that's okay - user will need to authenticate
+	if !p.authenticated {
+		return nil
+	}
+
+	return nil
+}
+
+// Execute executes the plugin logic
+// For 1Password plugin, most work is done during Initialize (registering template function)
+// Execute can be used to verify authentication or perform any runtime checks
+func (p *OnePasswordPlugin) Execute(ctx *plugin.ExecutionContext) error {
+	// Verify authentication status if op is available
+	if p.opPath != "" && !p.authenticated {
+		if err := p.checkAuthentication(); err != nil {
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("1Password CLI authentication check failed", "error", err)
+			}
+			// Don't fail execution - template function will handle errors
+		} else {
+			p.authenticated = true
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Info("1Password CLI authenticated")
+			}
+		}
+	}
+
+	return nil
+}
+
+// Rollback rolls back plugin changes
+// For 1Password plugin, there's nothing to rollback (no state changes)
+func (p *OnePasswordPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+	// Clear cache on rollback
+	p.cacheMu.Lock()
+	defer p.cacheMu.Unlock()
+	p.cache = make(map[string]cacheEntry)
+
+	if p.ctx.Logger != nil {
+		p.ctx.Logger.Info("1Password plugin rolled back (cache cleared)")
+	}
+
+	return nil
+}
+
+// findOP finds the 1Password CLI installation
+func (p *OnePasswordPlugin) findOP() (string, error) {
+	// First, try to find op in PATH
+	if opPath, err := exec.LookPath("op"); err == nil {
+		// Verify it's executable
+		if info, err := os.Stat(opPath); err == nil && info.Mode().IsRegular() {
+			return opPath, nil
+		}
+	}
+
+	// Common installation locations
+	opPaths := []string{
+		"/usr/local/bin/op",
+		"/opt/homebrew/bin/op",
+		filepath.Join(os.Getenv("HOME"), ".local/bin/op"),
+	}
+
+	// Try common locations
+	for _, path := range opPaths {
+		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("1Password CLI (op) not found in PATH or common locations")
+}
+
+// checkAuthentication checks if 1Password CLI is authenticated
+func (p *OnePasswordPlugin) checkAuthentication() error {
+	if p.opPath == "" {
+		return fmt.Errorf("1Password CLI not found")
+	}
+
+	// Run `op account list` to check authentication
+	cmd := exec.Command(p.opPath, "account", "list")
+	cmd.Env = os.Environ()
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("1Password CLI authentication check failed: %s: %w", string(output), err)
+	}
+
+	// If we get output, we're likely authenticated (or at least op is working)
+	if len(output) == 0 {
+		return fmt.Errorf("1Password CLI not authenticated (run 'op signin' to authenticate)")
+	}
+
+	return nil
+}
+
+// getSecret retrieves a secret from 1Password
+// This is the function registered with the template engine
+func (p *OnePasswordPlugin) getSecret(path string) (string, error) {
+	if p.opPath == "" {
+		return "", fmt.Errorf("1Password CLI (op) is not installed. Install it from https://1password.com/downloads/command-line/")
+	}
+
+	if !p.authenticated {
+		// Try to check authentication again (might have been authenticated since init)
+		if err := p.checkAuthentication(); err != nil {
+			return "", fmt.Errorf("1Password CLI is not authenticated. Run 'op signin' to authenticate: %w", err)
+		}
+		p.authenticated = true
+	}
+
+	// Check cache first
+	if p.cacheEnabled {
+		p.cacheMu.RLock()
+		if entry, found := p.cache[path]; found {
+			if time.Now().Before(entry.expiresAt) {
+				value := entry.value
+				p.cacheMu.RUnlock()
+				return value, nil
+			}
+			// Cache expired, remove it
+			p.cacheMu.RUnlock()
+			p.cacheMu.Lock()
+			delete(p.cache, path)
+			p.cacheMu.Unlock()
+		} else {
+			p.cacheMu.RUnlock()
+		}
+	}
+
+	// Build op command
+	args := []string{"read", path}
+	
+	// Add account flag if specified
+	if p.account != "" {
+		args = append(args, "--account", p.account)
+	}
+
+	// Add vault flag if specified
+	if p.vault != "" {
+		args = append(args, "--vault", p.vault)
+	}
+
+	// Run op command with timeout
+	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, p.opPath, args...)
+	cmd.Env = os.Environ()
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if cmdCtx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("1Password secret lookup timed out after 30 seconds for path: %s", path)
+		}
+
+		// Parse error output to provide better error messages
+		errorMsg := string(output)
+		if len(errorMsg) > 0 {
+			return "", fmt.Errorf("failed to retrieve secret from 1Password for path '%s': %s\nHint: Ensure the secret path is correct and you have access to it. Run 'op signin' if authentication is required", path, errorMsg)
+		}
+
+		return "", fmt.Errorf("failed to retrieve secret from 1Password for path '%s': %w\nHint: Ensure the secret path is correct and you have access to it", path, err)
+	}
+
+	// Parse output - op read returns JSON for structured items, plain text for fields
+	// Try to parse as JSON first
+	var jsonData map[string]interface{}
+	if err := json.Unmarshal(output, &jsonData); err == nil {
+		// It's JSON - extract the value field if it exists
+		if value, ok := jsonData["value"].(string); ok {
+			secret := value
+			// Cache the result
+			if p.cacheEnabled {
+				p.cacheSecret(path, secret)
+			}
+			return secret, nil
+		}
+		// If no value field, return the whole JSON as string (for structured items)
+		secret := string(output)
+		if p.cacheEnabled {
+			p.cacheSecret(path, secret)
+		}
+		return secret, nil
+	}
+
+	// Not JSON - return as plain text (trimmed)
+	secret := string(output)
+	if len(secret) > 0 && secret[len(secret)-1] == '\n' {
+		secret = secret[:len(secret)-1]
+	}
+
+	// Cache the result
+	if p.cacheEnabled {
+		p.cacheSecret(path, secret)
+	}
+
+	return secret, nil
+}
+
+// cacheSecret caches a secret with expiration
+func (p *OnePasswordPlugin) cacheSecret(path, value string) {
+	p.cacheMu.Lock()
+	defer p.cacheMu.Unlock()
+
+	p.cache[path] = cacheEntry{
+		value:     value,
+		expiresAt: time.Now().Add(p.cacheTTL),
+	}
+}
+

@@ -44,9 +44,9 @@ Extensible plugin system allows modular feature additions:
 - **Alternates Plugin** ✅: OS/hostname-based file selection for explicit dotfile mappings
 - **Directories Plugin** ✅: Ensure directories exist with proper permissions
 - **Run Once Plugin** ✅: Execute bootstrap scripts exactly once per machine
-- **On Change Plugin**: Run commands when files change
-- **Git Plugin**: Manage bare repository and clone extra repos
-- **Brew Plugin**: Homebrew integration for package management
+- **On Change Plugin** ✅: Execute commands when configuration or files change
+- **Git Plugin** ✅: Manage bare repository and clone extra repos
+- **Brew Plugin** ✅: Homebrew integration for package management with auto-installation
 - **1Password Plugin**: Secret injection from 1Password CLI
 
 ### 🎨 Template Support
@@ -162,9 +162,13 @@ plugins:
     force_run: false     # Optional: force re-execution of already-run scripts
   
   brew:
-    bundles:
-      - bootstrap    # expects brew/bootstrap file
-      - dev          # expects brew/dev file
+    auto_install: true   # Optional: automatically install Homebrew if not found
+    brewfile: "Brewfile" # Optional: path to Brewfile (default: "Brewfile")
+    auto_update: false   # Optional: run brew update after bundle
+    cleanup_after: true  # Optional: run brew cleanup after bundle
+    bundles:            # Optional: multiple bundle files
+      - bootstrap       # expects brew/bootstrap file
+      - dev             # expects brew/dev file
 ```
 
 ### Dotfiles Plugin
@@ -297,6 +301,100 @@ plugins:
 - Execution stops on first failure (other plugins may rollback)
 - Script output (stdout/stderr) is captured and stored for debugging
 
+### Brew Plugin
+
+The Brew Plugin integrates with Homebrew for package management. It can automatically install Homebrew if it's not found, run `brew bundle` to install packages from Brewfiles, and manage Homebrew updates and cleanup.
+
+**Key Features**:
+- **Auto-installation**: Automatically install Homebrew if not found (requires user interaction for sudo password)
+- **Brew bundle execution**: Run `brew bundle --file=Brewfile` to install packages
+- **Multiple bundles**: Support for multiple bundle files
+- **Change detection**: Only runs bundle if Brewfile changed
+- **Auto-update**: Optionally run `brew update` after bundle
+- **Auto-cleanup**: Optionally run `brew cleanup` after bundle
+- **Linux compatibility**: Works with Linuxbrew on Linux systems
+- **Dry-run support**: Preview what would be executed without running commands
+
+**Basic Configuration**:
+
+```yaml
+plugins:
+  brew:
+    brewfile: "Brewfile"
+```
+
+**With Auto-Installation**:
+
+```yaml
+plugins:
+  brew:
+    auto_install: true   # Install Homebrew if not found (requires user interaction)
+    brewfile: "Brewfile"
+    auto_update: false
+    cleanup_after: true
+```
+
+**Multiple Bundles**:
+
+```yaml
+plugins:
+  brew:
+    auto_install: true
+    bundles:
+      - bootstrap  # Runs brew bundle --file=bootstrap
+      - dev        # Runs brew bundle --file=dev
+```
+
+**Auto-Installation**:
+When `auto_install: true` is set and Homebrew is not found, the plugin will:
+1. Download the official Homebrew installer script
+2. Execute it (requires user to enter sudo password)
+3. Automatically detect the installed Homebrew after installation
+4. Continue with bundle execution
+
+**Note**: Auto-installation requires:
+- User interaction (sudo password prompt)
+- Internet connection
+- `curl` command available
+- Works on macOS and Linux
+
+**CLI Commands**:
+
+```bash
+# Install packages from Brewfile
+kilt brew install
+
+# Install Homebrew if not found (requires user interaction)
+kilt brew install --force
+
+# Update Homebrew and packages
+kilt brew update
+
+# Clean up old Homebrew files
+kilt brew cleanup
+```
+
+**Brewfile Format**:
+
+```ruby
+# Brewfile example
+brew "git"
+brew "vim"
+brew "tmux"
+cask "firefox"
+cask "visual-studio-code"
+```
+
+**Change Detection**:
+- The plugin only runs `brew bundle` if the Brewfile has changed
+- Uses state checksums to detect changes
+- Multiple bundles always run (change detection skipped for bundles)
+
+**Error Handling**:
+- Gracefully skips if Homebrew is not installed (unless `auto_install: true`)
+- Installation failures return clear error messages
+- Bundle failures stop execution and trigger rollback
+
 See [architecture.md](architecture.md) for the complete configuration schema.
 
 ## Commands
@@ -327,6 +425,13 @@ See [architecture.md](architecture.md) for the complete configuration schema.
   - Use `--json` flag for machine-readable JSON output
   - Example: `kilt backups list` or `kilt backups list --json`
 - `kilt reset` — Clear state and start fresh
+- `kilt brew install` — Install packages from Brewfile
+  - Runs `brew bundle --file=Brewfile` for configured bundle files
+  - Use `--force` flag to install Homebrew if not found (requires user interaction)
+- `kilt brew update` — Update Homebrew and packages
+  - Runs `brew update` followed by `brew upgrade`
+- `kilt brew cleanup` — Clean up old Homebrew files
+  - Runs `brew cleanup` to free up disk space
 
 ### Global Flags
 

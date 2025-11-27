@@ -16,7 +16,7 @@ import (
 
 // RunOncePlugin executes bootstrap scripts exactly once per machine
 type RunOncePlugin struct {
-	ctx          *plugin.PluginContext
+	ctx            *plugin.PluginContext
 	defaultTimeout time.Duration
 	forceRun       bool
 	executedTasks  []string // Track tasks executed in this run for rollback
@@ -385,4 +385,3 @@ func (p *RunOncePlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 	return nil
 }
-

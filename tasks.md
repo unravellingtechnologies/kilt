@@ -291,18 +291,18 @@
 ---
 
 ### 3.7 Brew Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Homebrew integration for package management.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/brew/`
-- [ ] Check if Homebrew is installed
-- [ ] Run `brew bundle --file=Brewfile`
-- [ ] Add `kilt brew` subcommand
+- [x] Create plugin in `internal/plugins/brew/`
+- [x] Check if Homebrew is installed
+- [x] Run `brew bundle --file=Brewfile`
+- [x] Add `kilt brew` subcommand
   - `kilt brew install`, `kilt brew update`, `kilt brew cleanup`
-- [ ] Detect Brewfile changes for on-change execution
-- [ ] Handle Linux (Linuxbrew) compatibility
-- [ ] Write plugin tests (mock brew commands)
+- [x] Detect Brewfile changes for on-change execution
+- [x] Handle Linux (Linuxbrew) compatibility
+- [x] Write plugin tests (mock brew commands)
 
 **Dependencies**: 1.2  
 **Estimated Complexity**: Medium
@@ -310,18 +310,18 @@
 ---
 
 ### 3.8 1Password Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Secret injection from 1Password CLI without storing in Git.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/onepassword/`
-- [ ] Check if `op` CLI is installed
-- [ ] Implement template function `{{ op "path/to/secret" }}`
-- [ ] Handle 1Password authentication
-- [ ] Add caching for secret lookups (optional, with TTL)
-- [ ] Provide clear error messages for missing secrets
-- [ ] Support multiple 1Password accounts
-- [ ] Write plugin tests (mock `op` commands)
+- [x] Create plugin in `internal/plugins/onepassword/`
+- [x] Check if `op` CLI is installed
+- [x] Implement template function `{{ op "path/to/secret" }}`
+- [x] Handle 1Password authentication
+- [x] Add caching for secret lookups (optional, with TTL)
+- [x] Provide clear error messages for missing secrets
+- [x] Support multiple 1Password accounts
+- [x] Write plugin tests (mock `op` commands)
 
 **Dependencies**: 1.2, 2.3  
 **Estimated Complexity**: High
@@ -331,18 +331,18 @@
 ## Phase 4: Installation & Distribution
 
 ### 4.1 Curl Installer Script
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Bash script for one-line installation and bootstrapping.
 
 **Tasks**:
-- [ ] Create `scripts/install.sh`
-- [ ] Detect OS and architecture
-- [ ] Download appropriate binary from GitHub releases
-- [ ] Verify checksum/signature
-- [ ] Install to `/usr/local/bin/kilt` or `~/.local/bin/kilt`
-- [ ] Support `curl ... | bash -s -- <repo-url>` for full bootstrap
-- [ ] Add error handling and rollback
-- [ ] Test on macOS (Intel, Apple Silicon) and Linux
+- [x] Create `scripts/install.sh`
+- [x] Detect OS and architecture
+- [x] Download appropriate binary from GitHub releases
+- [x] Verify checksum/signature
+- [x] Install to `/usr/local/bin/kilt` or `~/.local/bin/kilt`
+- [x] Support `curl ... | bash -s -- <repo-url>` for full bootstrap
+- [x] Add error handling and rollback
+- [ ] Test on macOS (Intel, Apple Silicon) and Linux (pending binary releases)
 
 **Dependencies**: 1.4  
 **Estimated Complexity**: Medium
@@ -350,19 +350,19 @@
 ---
 
 ### 4.2 Binary Building & Releases
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Cross-platform builds and GitHub release automation.
 
 **Tasks**:
-- [ ] Add `goreleaser` configuration
-- [ ] Configure multi-platform builds
+- [x] Add `goreleaser` configuration
+- [x] Configure multi-platform builds
   - macOS (amd64, arm64)
   - Linux (amd64, arm64)
-- [ ] Set up GitHub Actions for releases
-- [ ] Add version injection at build time
-- [ ] Create checksums and signatures
-- [ ] Add Homebrew tap/formula (optional)
-- [ ] Document release process
+- [x] Set up GitHub Actions for releases
+- [x] Add version injection at build time
+- [x] Create checksums and signatures
+- [x] Add Homebrew tap/formula (optional - configured in comments, ready to enable)
+- [x] Document release process
 
 **Dependencies**: 1.4, 4.1  
 **Estimated Complexity**: Medium

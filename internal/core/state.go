@@ -21,7 +21,7 @@ type StateManager struct {
 
 // StateDB represents the state database structure
 type StateDB struct {
-	RunOnce  map[string]RunOnceRecord  `json:"run_once"`
+	RunOnce  map[string]RunOnceRecord `json:"run_once"`
 	Files    map[string]FileRecord    `json:"files"`
 	Plugins  map[string]PluginRecord  `json:"plugins"`
 	LastSync time.Time                `json:"last_sync"`
@@ -442,4 +442,3 @@ func (sm *StateManager) Cleanup(maxAge time.Duration) error {
 func (sm *StateManager) GetStateDir() string {
 	return sm.stateDir
 }
-

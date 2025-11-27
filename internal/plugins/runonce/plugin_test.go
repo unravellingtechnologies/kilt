@@ -14,7 +14,7 @@ import (
 type mockLogger struct{}
 
 func (m *mockLogger) Debug(msg string, fields ...interface{}) {}
-func (m *mockLogger) Info(msg string, fields ...interface{})   {}
+func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
@@ -809,4 +809,3 @@ func generateTaskIDForTest(scriptPath string) string {
 	p := &RunOncePlugin{}
 	return p.generateTaskID(absPath)
 }
-
