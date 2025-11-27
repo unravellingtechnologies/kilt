@@ -1,21 +1,28 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
 // GitPlugin handles bidirectional Git synchronization for the dotfiles repository
+// and manages extra repositories
 type GitPlugin struct {
-	ctx          *plugin.PluginContext
-	dotfilesPath string
-	repoPath     string
+	ctx            *plugin.PluginContext
+	dotfilesPath   string
+	repoPath       string
+	autoPull       bool
+	sshKey         string
+	gitToken       string
+	clonedRepos    []string // Track cloned repos for rollback
 }
 
 func init() {
@@ -34,7 +41,7 @@ func (p *GitPlugin) Version() string {
 
 // Description returns the plugin description
 func (p *GitPlugin) Description() string {
-	return "Bidirectional Git synchronization for dotfiles repository"
+	return "Manage bare Git repository and clone extra repositories"
 }
 
 // Dependencies returns plugin dependencies
@@ -50,6 +57,10 @@ func (p *GitPlugin) Phase() plugin.ExecutionPhase {
 // Initialize initializes the plugin with context
 func (p *GitPlugin) Initialize(ctx *plugin.PluginContext) error {
 	p.ctx = ctx
+	p.autoPull = true
+	p.sshKey = ""
+	p.gitToken = ""
+	p.clonedRepos = make([]string, 0)
 
 	cfg, ok := ctx.Config.(*core.Config)
 	if !ok {
@@ -68,6 +79,29 @@ func (p *GitPlugin) Initialize(ctx *plugin.PluginContext) error {
 		return fmt.Errorf("failed to expand dotfiles path: %w", err)
 	}
 	p.repoPath = expandedPath
+
+	// Get plugin-specific configuration
+	config := plugin.GetPluginConfig(ctx.Config, p.Name())
+	if config != nil {
+		// Parse auto_pull flag
+		if autoPull, ok := config["auto_pull"].(bool); ok {
+			p.autoPull = autoPull
+		}
+
+		// Parse SSH key path
+		if sshKey, ok := config["ssh_key"].(string); ok {
+			expanded, err := core.ExpandPath(sshKey)
+			if err != nil {
+				return fmt.Errorf("failed to expand ssh_key path: %w", err)
+			}
+			p.sshKey = expanded
+		}
+
+		// Parse Git token (for HTTPS authentication)
+		if token, ok := config["git_token"].(string); ok {
+			p.gitToken = token
+		}
+	}
 
 	return nil
 }
@@ -94,8 +128,35 @@ func (p *GitPlugin) Validate() error {
 
 // Execute executes the plugin logic
 func (p *GitPlugin) Execute(ctx *plugin.ExecutionContext) error {
+	// Reset cloned repos for this execution
+	p.clonedRepos = make([]string, 0)
+
+	// 1. Handle main dotfiles repository
+	if p.autoPull {
+		if err := p.syncMainRepository(ctx); err != nil {
+			return fmt.Errorf("failed to sync main repository: %w", err)
+		}
+	}
+
+	// 2. Handle extra repositories
+	cfg, ok := p.ctx.Config.(*core.Config)
+	if !ok {
+		return fmt.Errorf("invalid config type")
+	}
+
+	for _, repo := range cfg.ExtraRepos {
+		if err := p.handleExtraRepository(ctx, repo); err != nil {
+			return fmt.Errorf("failed to handle extra repository %s: %w", repo.URL, err)
+		}
+	}
+
+	return nil
+}
+
+// syncMainRepository syncs the main dotfiles repository
+func (p *GitPlugin) syncMainRepository(ctx *plugin.ExecutionContext) error {
 	// 1. Fetch remote
-	if err := p.gitFetch(); err != nil {
+	if err := p.gitFetch(p.repoPath); err != nil {
 		return fmt.Errorf("git fetch failed: %w", err)
 	}
 
@@ -138,18 +199,215 @@ func (p *GitPlugin) Execute(ctx *plugin.ExecutionContext) error {
 		}
 	}
 
+	// Record changes
+	ctx.AddChange(plugin.Change{
+		Type:        "git_sync",
+		Files:       []string{p.repoPath},
+		Description: fmt.Sprintf("Synchronized dotfiles repository: %s", p.repoPath),
+	})
+
+	return nil
+}
+
+// handleExtraRepository handles an extra repository from config
+func (p *GitPlugin) handleExtraRepository(ctx *plugin.ExecutionContext, repo core.Repository) error {
+	// Expand repository path
+	repoPath, err := core.ExpandPath(repo.Path)
+	if err != nil {
+		return fmt.Errorf("failed to expand repository path: %w", err)
+	}
+
+	// Check if repository already exists
+	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+		// Repository doesn't exist - clone it
+		if p.ctx.DryRun {
+			ctx.AddChange(plugin.Change{
+				Type:        "git_clone",
+				Files:       []string{repoPath},
+				Description: fmt.Sprintf("Would clone repository: %s to %s", repo.URL, repoPath),
+			})
+			return nil
+		}
+
+		if err := p.cloneRepository(repo, repoPath); err != nil {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
+
+		p.clonedRepos = append(p.clonedRepos, repoPath)
+
+		ctx.AddChange(plugin.Change{
+			Type:        "git_clone",
+			Files:       []string{repoPath},
+			Description: fmt.Sprintf("Cloned repository: %s to %s", repo.URL, repoPath),
+		})
+
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Info("Cloned extra repository", "url", repo.URL, "path", repoPath)
+		}
+	} else {
+		// Repository exists - update it
+		if p.ctx.DryRun {
+			ctx.AddChange(plugin.Change{
+				Type:        "git_pull",
+				Files:       []string{repoPath},
+				Description: fmt.Sprintf("Would update repository: %s", repoPath),
+			})
+			return nil
+		}
+
+		if err := p.updateRepository(repo, repoPath); err != nil {
+			return fmt.Errorf("failed to update repository: %w", err)
+		}
+
+		ctx.AddChange(plugin.Change{
+			Type:        "git_pull",
+			Files:       []string{repoPath},
+			Description: fmt.Sprintf("Updated repository: %s", repoPath),
+		})
+	}
+
 	return nil
 }
 
 // gitFetch fetches remote changes
-func (p *GitPlugin) gitFetch() error {
-	cmd := exec.Command("git", "fetch", "origin")
-	cmd.Dir = p.repoPath
+func (p *GitPlugin) gitFetch(repoPath string) error {
+	// Check if remote exists
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		// No remote configured - that's okay for local repos
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Debug("No remote 'origin' configured, skipping fetch")
+		}
+		return nil
+	}
+
+	cmd = exec.Command("git", "fetch", "origin")
+	cmd.Dir = repoPath
+	p.setupGitAuth(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git fetch failed: %s: %w", string(output), err)
 	}
 	return nil
+}
+
+// cloneRepository clones a repository
+func (p *GitPlugin) cloneRepository(repo core.Repository, targetPath string) error {
+	// Create parent directory if it doesn't exist
+	parentDir := filepath.Dir(targetPath)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return fmt.Errorf("failed to create parent directory: %w", err)
+	}
+
+	// Build clone command
+	args := []string{"clone"}
+
+	// Add branch if specified
+	if repo.Branch != "" {
+		args = append(args, "--branch", repo.Branch)
+	}
+
+	// Add sparse checkout if requested
+	if repo.Sparse {
+		args = append(args, "--filter=blob:none", "--sparse")
+	}
+
+	// Add repository URL and target path
+	repoURL := p.authenticateURL(repo.URL)
+	args = append(args, repoURL, targetPath)
+
+	// Set timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = filepath.Dir(targetPath)
+	p.setupGitAuth(cmd)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("git clone timed out after 5 minutes")
+		}
+		return fmt.Errorf("git clone failed: %s: %w", string(output), err)
+	}
+
+	// If sparse checkout was requested, initialize it
+	if repo.Sparse {
+		cmd = exec.Command("git", "sparse-checkout", "init", "--cone")
+		cmd.Dir = targetPath
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("git sparse-checkout init failed: %s: %w", string(output), err)
+		}
+	}
+
+	return nil
+}
+
+// updateRepository updates an existing repository
+func (p *GitPlugin) updateRepository(repo core.Repository, repoPath string) error {
+	// Fetch latest changes
+	if err := p.gitFetch(repoPath); err != nil {
+		return fmt.Errorf("failed to fetch: %w", err)
+	}
+
+	// Get current branch or use specified branch
+	branch := repo.Branch
+	if branch == "" {
+		cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = repoPath
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+		branch = strings.TrimSpace(string(output))
+	}
+
+	// Pull latest changes
+	cmd := exec.Command("git", "pull", "--ff-only", "origin", branch)
+	cmd.Dir = repoPath
+	p.setupGitAuth(cmd)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// If fast-forward fails, try regular pull
+		cmd = exec.Command("git", "pull", "origin", branch)
+		cmd.Dir = repoPath
+		p.setupGitAuth(cmd)
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("git pull failed: %s: %w", string(output), err)
+		}
+	}
+
+	return nil
+}
+
+// authenticateURL adds authentication to a Git URL if needed
+func (p *GitPlugin) authenticateURL(url string) string {
+	// If we have a token and URL is HTTPS, inject token
+	if p.gitToken != "" && strings.HasPrefix(url, "https://") {
+		// Insert token into URL: https://token@github.com/user/repo.git
+		url = strings.Replace(url, "https://", fmt.Sprintf("https://%s@", p.gitToken), 1)
+	}
+	return url
+}
+
+// setupGitAuth configures Git command with authentication
+func (p *GitPlugin) setupGitAuth(cmd *exec.Cmd) {
+	// Set SSH key if provided
+	if p.sshKey != "" {
+		// Set GIT_SSH_COMMAND to use specific key
+		sshCmd := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", p.sshKey)
+		cmd.Env = append(os.Environ(), "GIT_SSH_COMMAND="+sshCmd)
+	}
+
+	// Set Git token in environment if provided (for HTTPS)
+	if p.gitToken != "" {
+		// Extract host from URL if possible, or use generic
+		cmd.Env = append(cmd.Env, "GIT_ASKPASS=echo", "GIT_TERMINAL_PROMPT=0")
+	}
 }
 
 // hasUncommittedChanges checks if there are uncommitted local changes
@@ -192,6 +450,7 @@ func (p *GitPlugin) hasRemoteChanges() (bool, error) {
 func (p *GitPlugin) gitPull() error {
 	cmd := exec.Command("git", "pull", "--ff-only", "origin")
 	cmd.Dir = p.repoPath
+	p.setupGitAuth(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git pull failed: %s: %w", string(output), err)
@@ -209,6 +468,7 @@ func (p *GitPlugin) pullWithRebase() error {
 	// Pull with rebase
 	cmd = exec.Command("git", "pull", "--rebase", "origin")
 	cmd.Dir = p.repoPath
+	p.setupGitAuth(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Restore stash if pull failed
@@ -280,9 +540,10 @@ func (p *GitPlugin) commitAndPush() error {
 		return fmt.Errorf("git commit failed: %s: %w", string(output), err)
 	}
 
-	// Push
+		// Push
 	cmd = exec.Command("git", "push", "origin")
 	cmd.Dir = p.repoPath
+	p.setupGitAuth(cmd)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git push failed: %s: %w", string(output), err)
 	}
@@ -294,9 +555,30 @@ func (p *GitPlugin) commitAndPush() error {
 	return nil
 }
 
-// Rollback rolls back any changes (no-op for Git plugin)
+// Rollback rolls back any changes
 func (p *GitPlugin) Rollback(ctx *plugin.ExecutionContext) error {
-	// Git plugin doesn't modify files directly, so rollback is a no-op
+	// Remove cloned repositories
+	for _, repoPath := range p.clonedRepos {
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Info("Rolling back cloned repository", "path", repoPath)
+		}
+
+		if err := os.RemoveAll(repoPath); err != nil {
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("Failed to remove repository during rollback", "path", repoPath, "error", err)
+			}
+		}
+
+		ctx.AddChange(plugin.Change{
+			Type:        "git_rollback",
+			Files:       []string{repoPath},
+			Description: fmt.Sprintf("Removed cloned repository: %s", repoPath),
+		})
+	}
+
+	// Clear cloned repos
+	p.clonedRepos = make([]string, 0)
+
 	return nil
 }
 

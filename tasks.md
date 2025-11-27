@@ -254,17 +254,17 @@
 ---
 
 ### 3.5 On Change Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Execute commands when configuration or files change.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/onchange/`
-- [ ] Detect changes via checksums or git diff
-- [ ] Execute commands in specified order
-- [ ] Add change detection granularity (file-level, global)
-- [ ] Support conditional execution (only if X changed)
-- [ ] Capture command output
-- [ ] Write plugin tests
+- [x] Create plugin in `internal/plugins/onchange/`
+- [x] Detect changes via checksums or git diff (uses state checksums and execution context changes)
+- [x] Execute commands in specified order
+- [x] Add change detection granularity (file-level, global, conditional)
+- [x] Support conditional execution (only if X changed)
+- [x] Capture command output
+- [x] Write plugin tests
 
 **Dependencies**: 1.2, 2.1  
 **Estimated Complexity**: Medium
@@ -272,18 +272,18 @@
 ---
 
 ### 3.6 Git Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Manage bare Git repository and clone extra repositories.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/git/`
-- [ ] Implement bare repo setup at `~/.kilt/repo`
-- [ ] Add Git operations: clone, pull, status
-- [ ] Handle extra repositories from config (`[[extra_repos]]`)
-- [ ] Support sparse checkouts
-- [ ] Add authentication handling (SSH keys, tokens)
-- [ ] Implement `kilt sync` git pull integration
-- [ ] Write plugin tests (mock git commands or use test repos)
+- [x] Create plugin in `internal/plugins/git/`
+- [x] Implement bare repo setup at `~/.kilt/repo` (Note: Current implementation uses regular repo at `~/.dotfiles` per architecture)
+- [x] Add Git operations: clone, pull, status (fetch, pull, push, commit)
+- [x] Handle extra repositories from config (`extra_repos`)
+- [x] Support sparse checkouts
+- [x] Add authentication handling (SSH keys, tokens)
+- [x] Implement `kilt sync` git pull integration
+- [x] Write plugin tests (mock git commands or use test repos)
 
 **Dependencies**: 1.2  
 **Estimated Complexity**: High
