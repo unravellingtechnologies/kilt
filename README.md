@@ -56,7 +56,10 @@ Full Go template support with built-in variables:
 - Custom data from `data.toml`
 
 ### 🛡️ Safety Features
-- Automatic backups before file modifications
+- **Automatic backups** before file modifications with timestamped directories
+- **Incremental backups** that only backup changed files
+- **Backup retention policy** to manage disk space
+- **Restore functionality** to recover from any backup
 - Dry-run mode to preview changes
 - Rollback capability on failure
 - State locking for concurrent execution safety
@@ -73,8 +76,9 @@ Full Go template support with built-in variables:
   - ✅ CLI Framework (1.4)
 - ✅ Phase 2: Core Engine Features
   - ✅ State Management & Idempotency (2.1)
+  - ✅ Backup System (2.2)
 
-**In Progress**: Phase 2 - Core Engine Features (Backup System, Template Engine, Engine Orchestrator)
+**In Progress**: Phase 2 - Core Engine Features (Template Engine, Engine Orchestrator)
 
 This project is currently in early development. See [tasks.md](tasks.md) for the full development roadmap and [architecture.md](architecture.md) for detailed architecture documentation.
 
@@ -151,7 +155,7 @@ See [architecture.md](architecture.md) for the complete configuration schema.
   - Checks file permissions and paths
 - `kilt version` — Show version information
 - `kilt completion [bash|zsh|fish|powershell]` — Generate shell completion scripts
-- `kilt restore <timestamp>` — Restore from backup (coming in Phase 2)
+- `kilt restore <timestamp>` — Restore files from a backup (core functionality implemented)
 - `kilt reset` — Clear state and start fresh
 
 ### Global Flags
