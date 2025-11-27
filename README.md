@@ -50,10 +50,11 @@ Extensible plugin system allows modular feature additions:
 
 ### 🎨 Template Support
 Full Go template support with built-in variables:
-- System info: `{{ .hostname }}`, `{{ .os }}`, `{{ .arch }}`, `{{ .user }}`, `{{ .home }}`
+- System info: `{{ .Hostname }}`, `{{ .OS }}`, `{{ .Arch }}`, `{{ .User }}`, `{{ .Home }}`
 - Environment variables: `{{ env "VAR" }}`
-- 1Password secrets: `{{ op "path/to/secret" }}`
-- Custom data from `data.toml`
+- 1Password secrets: `{{ op "path/to/secret" }}` (requires 1Password plugin)
+- Custom data from `data.toml` or `data.yaml`: `{{ .Custom.key }}`
+- Customizable delimiters (default: `{{` and `}}`)
 
 ### 🛡️ Safety Features
 - **Automatic backups** before file modifications with timestamped directories

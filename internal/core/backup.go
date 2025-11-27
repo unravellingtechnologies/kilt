@@ -19,18 +19,18 @@ type BackupManager struct {
 
 // BackupMetadata contains information about a backup
 type BackupMetadata struct {
-	Timestamp   time.Time         `json:"timestamp"`
-	BackupID    string            `json:"backup_id"`
-	Files       []BackedUpFile    `json:"files"`
-	TotalSize   int64             `json:"total_size"`
-	Description string            `json:"description,omitempty"`
+	Timestamp   time.Time      `json:"timestamp"`
+	BackupID    string         `json:"backup_id"`
+	Files       []BackedUpFile `json:"files"`
+	TotalSize   int64          `json:"total_size"`
+	Description string         `json:"description,omitempty"`
 }
 
 // BackedUpFile represents a single file in a backup
 type BackedUpFile struct {
-	OriginalPath string `json:"original_path"`
-	BackupPath   string `json:"backup_path"`
-	Size         int64  `json:"size"`
+	OriginalPath string      `json:"original_path"`
+	BackupPath   string      `json:"backup_path"`
+	Size         int64       `json:"size"`
 	Mode         os.FileMode `json:"mode"`
 }
 
@@ -415,4 +415,3 @@ func (bm *BackupManager) CleanupOldBackups(keepCount int) error {
 func (bm *BackupManager) GetBackupDir() string {
 	return bm.backupDir
 }
-

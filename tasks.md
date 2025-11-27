@@ -136,19 +136,21 @@
 ---
 
 ### 2.3 Template Engine
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Go template support with custom functions and variable injection.
 
 **Tasks**:
-- [ ] Implement template engine in `internal/core/template.go`
-- [ ] Use Go's `text/template` package
-- [ ] Add built-in template functions
-  - `{{ .hostname }}`, `{{ .os }}`, `{{ .arch }}`
-- [ ] Support custom data file (`data.toml`, `data.yaml`)
-- [ ] Add template validation and error reporting
-- [ ] Support template delimiters customization
-- [ ] Create template testing utilities
-- [ ] Write comprehensive template tests
+- [x] Implement template engine in `internal/core/template.go`
+- [x] Use Go's `text/template` package
+- [x] Add built-in template functions
+  - `{{ .Hostname }}`, `{{ .OS }}`, `{{ .Arch }}`, `{{ .User }}`, `{{ .Home }}`
+  - `{{ env "VAR" }}` for environment variables
+  - `{{ op "path/to/secret" }}` for 1Password integration (plugin-registered)
+- [x] Support custom data file (`data.toml`, `data.yaml`)
+- [x] Add template validation and error reporting
+- [x] Support template delimiters customization
+- [x] Create template testing utilities
+- [x] Write comprehensive template tests
 
 **Dependencies**: 1.1, 1.3  
 **Estimated Complexity**: Medium
