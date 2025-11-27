@@ -244,6 +244,15 @@ func (sm *StateManager) GetRunOnceRecordTyped(taskID string) (*RunOnceRecord, bo
 	return record.(*RunOnceRecord), true
 }
 
+// DeleteRunOnceRecord removes a run-once task record (allows re-execution)
+func (sm *StateManager) DeleteRunOnceRecord(taskID string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	delete(sm.db.RunOnce, taskID)
+	return sm.save()
+}
+
 // CalculateChecksum calculates SHA256 checksum of a file
 func CalculateChecksum(filePath string) (string, error) {
 	file, err := os.Open(filePath)

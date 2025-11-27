@@ -235,18 +235,18 @@
 ---
 
 ### 3.4 Run Once Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Execute bootstrap scripts exactly once per machine.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/runonce/`
-- [ ] Track execution in state system (`.kilt/state/runonce/`)
-- [ ] Execute shell scripts in order
-- [ ] Capture stdout/stderr for logging
-- [ ] Add `--force-run` flag to re-execute
-- [ ] Implement timeout protection
-- [ ] Handle script failures gracefully
-- [ ] Write plugin tests with mock scripts
+- [x] Create plugin in `internal/plugins/runonce/`
+- [x] Track execution in state system (`.kilt/state/runonce/`)
+- [x] Execute shell scripts in order
+- [x] Capture stdout/stderr for logging
+- [x] Add `--force-run` flag to re-execute (implemented via plugin config `force_run`)
+- [x] Implement timeout protection
+- [x] Handle script failures gracefully
+- [x] Write plugin tests with mock scripts
 
 **Dependencies**: 1.2, 2.1  
 **Estimated Complexity**: Medium
