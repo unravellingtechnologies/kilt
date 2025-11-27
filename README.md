@@ -43,7 +43,7 @@ Extensible plugin system allows modular feature additions:
 - **Git Plugin** ✅: Bidirectional Git synchronization (pull remote changes, push local changes)
 - **Alternates Plugin** ✅: OS/hostname-based file selection for explicit dotfile mappings
 - **Directories Plugin** ✅: Ensure directories exist with proper permissions
-- **Run Once Plugin**: Execute bootstrap scripts exactly once
+- **Run Once Plugin** ✅: Execute bootstrap scripts exactly once per machine
 - **On Change Plugin**: Run commands when files change
 - **Git Plugin**: Manage bare repository and clone extra repos
 - **Brew Plugin**: Homebrew integration for package management
@@ -83,6 +83,9 @@ Full Go template support with built-in variables:
   - ✅ Core Engine Orchestrator (2.4)
 - ✅ Phase 3: Core Plugins
   - ✅ Files Plugin (3.1)
+  - ✅ Alternates Plugin (3.2)
+  - ✅ Directories Plugin (3.3)
+  - ✅ Run Once Plugin (3.4)
 
 **In Progress**: Phase 3 - Core Plugins (Alternates, Directories, Run Once, etc.)
 
@@ -150,9 +153,14 @@ directories:
 run_once:
   - scripts/install_homebrew.sh
   - scripts/setup_macos.sh
+  - scripts/setup_ssh_keys.sh
 
-# Brew bundles (order preserved)
+# Plugin-specific configuration
 plugins:
+  runonce:
+    timeout: "10m"      # Optional: custom timeout per script (default: 5m)
+    force_run: false     # Optional: force re-execution of already-run scripts
+  
   brew:
     bundles:
       - bootstrap    # expects brew/bootstrap file
@@ -198,6 +206,96 @@ The Dotfiles Plugin is the core plugin for managing dotfile synchronization. It 
 - `mode` (optional): File permissions in octal format (e.g., `"0644"`, `"0600"`)
 
 **Note**: For template files, the rendered content is written (not symlinked) to ensure templates are always up-to-date.
+
+### Run Once Plugin
+
+The Run Once Plugin executes bootstrap scripts exactly once per machine. It's perfect for initial setup tasks like installing Homebrew, setting up SSH keys, or configuring system preferences.
+
+**Key Features**:
+- **Idempotent execution**: Scripts run once and are tracked in state
+- **Order preservation**: Scripts execute in the order specified in config
+- **Timeout protection**: Configurable timeout prevents hanging scripts (default: 5 minutes)
+- **Output capture**: Captures and logs stdout/stderr for debugging
+- **Force re-execution**: Can force scripts to run again via plugin config
+- **Graceful failure handling**: Failed scripts are recorded to prevent infinite retries
+- **Shebang support**: Automatically detects and uses script shebangs
+- **Dry-run support**: Preview which scripts would execute without running them
+
+**Basic Configuration**:
+
+```yaml
+run_once:
+  - scripts/install_homebrew.sh
+  - scripts/setup_macos.sh
+  - scripts/setup_ssh_keys.sh
+```
+
+**With Plugin Configuration**:
+
+```yaml
+run_once:
+  - scripts/install_homebrew.sh
+  - scripts/setup_macos.sh
+  - scripts/long_running_script.sh
+
+plugins:
+  runonce:
+    timeout: "15m"       # Custom timeout (default: 5m)
+    force_run: false     # Set to true to re-execute all scripts
+```
+
+**Script Requirements**:
+- Scripts must exist and be readable
+- Scripts should be executable (chmod +x)
+- Scripts can use any shebang (#!/bin/sh, #!/bin/bash, #!/usr/bin/env python3, etc.)
+- Scripts without shebangs default to `sh`
+- Scripts run in their own directory context
+
+**Example Script**:
+
+```bash
+#!/bin/sh
+# scripts/install_homebrew.sh
+
+set -e
+
+if ! command -v brew &> /dev/null; then
+  echo "Installing Homebrew..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+else
+  echo "Homebrew already installed"
+fi
+```
+
+**State Tracking**:
+- Each script execution is tracked in `.kilt/state/state.json`
+- Task IDs are generated from script paths (SHA256 hash)
+- Execution records include: timestamp, exit code, and output
+- Failed scripts are also recorded to prevent retry loops
+
+**Force Re-execution**:
+To re-run scripts that have already executed, set `force_run: true` in plugin config:
+
+```yaml
+plugins:
+  runonce:
+    force_run: true  # Re-execute all scripts, even if already completed
+```
+
+**Timeout Configuration**:
+Set a custom timeout for all scripts:
+
+```yaml
+plugins:
+  runonce:
+    timeout: "30m"  # 30 minutes (supports: s, m, h)
+```
+
+**Error Handling**:
+- Scripts that exit with non-zero codes are treated as failures
+- Failed scripts are recorded in state (prevents infinite retries)
+- Execution stops on first failure (other plugins may rollback)
+- Script output (stdout/stderr) is captured and stored for debugging
 
 See [architecture.md](architecture.md) for the complete configuration schema.
 
@@ -311,7 +409,7 @@ See [tasks.md](tasks.md) for the complete development roadmap. Current focus:
 
 - ✅ Phase 1: Project Foundation & Core Architecture
 - ✅ Phase 2: Core Engine Features
-- 🚧 Phase 3: Core Plugins (Files Plugin ✅, others in progress)
+- 🚧 Phase 3: Core Plugins (Files ✅, Alternates ✅, Directories ✅, Run Once ✅, others in progress)
 - ⏳ Phase 4: Installation & Distribution
 - ⏳ Phase 5: Testing & Quality Assurance
 - ⏳ Phase 6: Documentation & Polish
