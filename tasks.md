@@ -179,18 +179,18 @@
 ## Phase 3: Core Plugins
 
 ### 3.1 Files Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Core plugin for file placement with source → target mapping.
 
 **Tasks**:
-- [ ] Create plugin structure in `internal/plugins/files/`
-- [ ] Implement `Plugin` interface
-- [ ] Parse `[[files]]` sections from TOML config
-- [ ] Support arbitrary target paths with `~` expansion
-- [ ] Add file diff generation for dry-run
-- [ ] Handle symlinks vs copies (make configurable)
-- [ ] Implement file permission preservation
-- [ ] Write plugin tests with mock filesystem
+- [x] Create plugin structure in `internal/plugins/files/`
+- [x] Implement `Plugin` interface
+- [x] Parse `[[files]]` sections from TOML config
+- [x] Support arbitrary target paths with `~` expansion
+- [x] Add file diff generation for dry-run
+- [x] Handle symlinks vs copies (make configurable)
+- [x] Implement file permission preservation
+- [x] Write plugin tests with mock filesystem
 
 **Dependencies**: 1.2, 2.2, 2.3  
 **Estimated Complexity**: Medium
@@ -198,18 +198,18 @@
 ---
 
 ### 3.2 Alternates Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Automatic file selection based on OS, hostname, architecture.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/alternates/`
-- [ ] Implement file matching logic
+- [x] Create plugin in `internal/plugins/alternates/`
+- [x] Implement file matching logic
   - `file.mac`, `file.linux`, `file.hostname@work`
-- [ ] Define priority rules for multiple matches
-- [ ] Integrate with Files plugin
-- [ ] Support custom alternate patterns
-- [ ] Add alternate resolution logging
-- [ ] Write tests for all matching scenarios
+- [x] Define priority rules for multiple matches
+- [x] Integrate with Files plugin
+- [x] Support custom alternate patterns
+- [x] Add alternate resolution logging
+- [x] Write tests for all matching scenarios
 
 **Dependencies**: 3.1  
 **Estimated Complexity**: Medium
@@ -217,17 +217,17 @@
 ---
 
 ### 3.3 Directories Plugin
-**Status**: TODO  
+**Status**: DONE  
 **Description**: Ensure specified directories exist with proper permissions.
 
 **Tasks**:
-- [ ] Create plugin in `internal/plugins/directories/`
-- [ ] Parse `directories` array from config
-- [ ] Create directories with parents if needed
-- [ ] Support permission specification
-- [ ] Add dry-run reporting
-- [ ] Handle existing directories gracefully
-- [ ] Write plugin tests
+- [x] Create plugin in `internal/plugins/directories/`
+- [x] Parse `directories` array from config
+- [x] Create directories with parents if needed
+- [x] Support permission specification
+- [x] Add dry-run reporting
+- [x] Handle existing directories gracefully
+- [x] Write plugin tests
 
 **Dependencies**: 1.2  
 **Estimated Complexity**: Low

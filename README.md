@@ -39,7 +39,7 @@ Secrets are never stored in Git. Use 1Password CLI integration to inject secrets
 
 ### 🧩 Plugin Architecture
 Extensible plugin system allows modular feature additions:
-- **Files Plugin**: File placement with source → target mapping
+- **Files Plugin** ✅: File placement with source → target mapping, symlink support, template rendering, and permission preservation
 - **Alternates Plugin**: OS/hostname-based file selection
 - **Directories Plugin**: Ensure directories exist with proper permissions
 - **Run Once Plugin**: Execute bootstrap scripts exactly once
@@ -67,7 +67,7 @@ Full Go template support with built-in variables:
 
 ## Project Status
 
-**Status**: 🚧 In Development (Phase 2: Core Engine Features)
+**Status**: 🚧 In Development (Phase 3: Core Plugins)
 
 **Completed**:
 - ✅ Phase 1: Project Foundation & Core Architecture
@@ -78,8 +78,12 @@ Full Go template support with built-in variables:
 - ✅ Phase 2: Core Engine Features
   - ✅ State Management & Idempotency (2.1)
   - ✅ Backup System (2.2)
+  - ✅ Template Engine (2.3)
+  - ✅ Core Engine Orchestrator (2.4)
+- ✅ Phase 3: Core Plugins
+  - ✅ Files Plugin (3.1)
 
-**In Progress**: Phase 2 - Core Engine Features (Template Engine, Engine Orchestrator)
+**In Progress**: Phase 3 - Core Plugins (Alternates, Directories, Run Once, etc.)
 
 This project is currently in early development. See [tasks.md](tasks.md) for the full development roadmap and [architecture.md](architecture.md) for detailed architecture documentation.
 
@@ -118,15 +122,26 @@ Kilt uses TOML configuration files. Create a `config.toml` in your dotfiles repo
 
 ```toml
 # Example configuration
+
+# File mappings - core feature for placing files
 [[files]]
 source = "zsh/zshrc"
 target = "~/.zshrc"
 template = false
+mode = "0644"
 
 [[files]]
 source = "gitconfig.tmpl"
 target = "~/.gitconfig"
 template = true
+mode = "0644"
+
+# Files Plugin configuration
+[plugins.files]
+# Create symlinks instead of copying files (default: false)
+create_symlinks = false
+# Preserve file permissions from source (default: true)
+preserve_permissions = true
 
 directories = [
     "~/dev/personal",
@@ -137,6 +152,28 @@ run_once = [
     "scripts/install_homebrew.sh"
 ]
 ```
+
+### Files Plugin
+
+The Files Plugin is the core plugin for managing file placement. It supports:
+
+- **File copying**: Copy files from repository to target locations
+- **Symlink creation**: Optionally create symlinks instead of copying (configure via `create_symlinks`)
+- **Template rendering**: Automatically render Go templates when `template = true`
+- **Permission preservation**: Preserve source file permissions or set explicit permissions via `mode`
+- **Automatic backups**: Existing files are automatically backed up before modification
+- **Idempotency**: Skips unchanged files based on checksum comparison
+- **Dry-run support**: Preview changes without modifying filesystem
+
+**File Mapping Fields**:
+- `source` (required): Path to source file relative to repository root
+- `target` (required): Target path (supports `~` expansion and environment variables)
+- `template` (optional): Whether to render as template (default: `false`)
+- `mode` (optional): File permissions in octal format (e.g., `"0644"`, `"0755"`)
+
+**Plugin Configuration**:
+- `create_symlinks` (optional): Create symlinks instead of copying (default: `false`)
+- `preserve_permissions` (optional): Preserve permissions from source file (default: `true`)
 
 See [architecture.md](architecture.md) for the complete configuration schema.
 
@@ -246,9 +283,9 @@ Inspired by tools like:
 
 See [tasks.md](tasks.md) for the complete development roadmap. Current focus:
 
-- ✅ Phase 1: Project Foundation & Core Architecture (in progress)
-- ⏳ Phase 2: Core Engine Features
-- ⏳ Phase 3: Core Plugins
+- ✅ Phase 1: Project Foundation & Core Architecture
+- ✅ Phase 2: Core Engine Features
+- 🚧 Phase 3: Core Plugins (Files Plugin ✅, others in progress)
 - ⏳ Phase 4: Installation & Distribution
 - ⏳ Phase 5: Testing & Quality Assurance
 - ⏳ Phase 6: Documentation & Polish
