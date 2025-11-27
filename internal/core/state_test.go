@@ -98,8 +98,8 @@ func TestRunOnceTasks(t *testing.T) {
 		t.Error("Task should be completed after marking")
 	}
 
-	// Retrieve record
-	retrieved, exists := sm.GetRunOnceRecord(taskID)
+	// Retrieve record (use typed version)
+	retrieved, exists := sm.GetRunOnceRecordTyped(taskID)
 	if !exists {
 		t.Fatal("Record should exist")
 	}
@@ -198,8 +198,8 @@ func TestPluginRecords(t *testing.T) {
 		t.Fatalf("Failed to record plugin execution: %v", err)
 	}
 
-	// Retrieve record
-	record, exists := sm.GetPluginRecord(pluginName)
+	// Retrieve record (use typed version)
+	record, exists := sm.GetPluginRecordTyped(pluginName)
 	if !exists {
 		t.Fatal("Plugin record should exist")
 	}
@@ -369,7 +369,7 @@ func TestStatePersistence(t *testing.T) {
 		t.Error("Task should be completed after state persistence")
 	}
 
-	record, exists := sm2.GetRunOnceRecord(taskID)
+	record, exists := sm2.GetRunOnceRecordTyped(taskID)
 	if !exists {
 		t.Fatal("Record should exist after persistence")
 	}

@@ -195,7 +195,8 @@ func (sm *StateManager) IsTaskCompleted(taskID string) bool {
 }
 
 // MarkTaskCompleted marks a run-once task as completed
-func (sm *StateManager) MarkTaskCompleted(taskID string, record RunOnceRecord) error {
+// This is the internal method with specific type
+func (sm *StateManager) markTaskCompletedInternal(taskID string, record RunOnceRecord) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -208,8 +209,22 @@ func (sm *StateManager) MarkTaskCompleted(taskID string, record RunOnceRecord) e
 	return sm.save()
 }
 
-// GetRunOnceRecord retrieves a run-once task record
-func (sm *StateManager) GetRunOnceRecord(taskID string) (*RunOnceRecord, bool) {
+// MarkTaskCompleted marks a run-once task as completed (plugin interface compatible)
+func (sm *StateManager) MarkTaskCompleted(taskID string, record interface{}) error {
+	runOnceRecord, ok := record.(RunOnceRecord)
+	if !ok {
+		// Try pointer type
+		if ptr, ok := record.(*RunOnceRecord); ok {
+			runOnceRecord = *ptr
+		} else {
+			return fmt.Errorf("invalid record type for task %s: expected RunOnceRecord", taskID)
+		}
+	}
+	return sm.markTaskCompletedInternal(taskID, runOnceRecord)
+}
+
+// GetRunOnceRecord retrieves a run-once task record (plugin interface compatible)
+func (sm *StateManager) GetRunOnceRecord(taskID string) (interface{}, bool) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
@@ -218,6 +233,15 @@ func (sm *StateManager) GetRunOnceRecord(taskID string) (*RunOnceRecord, bool) {
 		return nil, false
 	}
 	return &record, true
+}
+
+// GetRunOnceRecordTyped retrieves a run-once task record with specific type (internal use)
+func (sm *StateManager) GetRunOnceRecordTyped(taskID string) (*RunOnceRecord, bool) {
+	record, exists := sm.GetRunOnceRecord(taskID)
+	if !exists {
+		return nil, false
+	}
+	return record.(*RunOnceRecord), true
 }
 
 // CalculateChecksum calculates SHA256 checksum of a file
@@ -319,8 +343,8 @@ func (sm *StateManager) RecordPluginExecution(pluginName, version string, succes
 	return sm.save()
 }
 
-// GetPluginRecord retrieves a plugin execution record
-func (sm *StateManager) GetPluginRecord(pluginName string) (*PluginRecord, bool) {
+// GetPluginRecord retrieves a plugin execution record (plugin interface compatible)
+func (sm *StateManager) GetPluginRecord(pluginName string) (interface{}, bool) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
@@ -329,6 +353,15 @@ func (sm *StateManager) GetPluginRecord(pluginName string) (*PluginRecord, bool)
 		return nil, false
 	}
 	return &record, true
+}
+
+// GetPluginRecordTyped retrieves a plugin execution record with specific type (internal use)
+func (sm *StateManager) GetPluginRecordTyped(pluginName string) (*PluginRecord, bool) {
+	record, exists := sm.GetPluginRecord(pluginName)
+	if !exists {
+		return nil, false
+	}
+	return record.(*PluginRecord), true
 }
 
 // UpdateLastSync updates the last sync timestamp
