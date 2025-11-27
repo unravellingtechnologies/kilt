@@ -124,7 +124,8 @@
 - [x] Implement backup logic in `internal/core/backup.go`
   - Copy files before overwrite, maintain directory structure
 - [x] Add incremental backup (only changed files)
-- [x] Implement `kilt restore <timestamp>` command (core functionality ready, CLI integration pending)
+- [x] Implement `kilt restore <backup-id>` command (fully implemented with CLI)
+- [x] Implement `kilt backups list` command (fully implemented with CLI)
 - [x] Add backup retention policy (keep last N backups)
 - [x] Add backup size reporting
 - [x] Write backup tests with fixtures

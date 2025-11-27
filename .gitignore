@@ -2,7 +2,6 @@
 *.exe
 *.exe~
 *.dll
-*.so
 *.dylib
 
 # Test binary, built with `go test -c`
@@ -11,6 +10,10 @@
 # Output of the go coverage tool
 *.out
 *.coverprofile
+coverage.out
+coverage.html
+coverage.txt
+*.cover
 
 # Dependency directories
 vendor/
@@ -24,8 +27,16 @@ go.work.sum
 .idea/
 *.swp
 *.swo
+*.swn
 *~
 .DS_Store
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.vim/
+*.vim
+.emacs.d/
+*.elc
 
 # Build artifacts
 dist/
@@ -36,6 +47,10 @@ kilt
 kilt.exe
 kilt.darwin
 kilt.linux
+*.o
+*.a
+*.so
+__debug_bin
 
 # Test files and fixtures (keep structure, ignore generated data)
 test/fixtures/*.tmp
@@ -64,6 +79,45 @@ temp/
 # goreleaser snapshot builds
 .goreleaser/
 
-# Coverage reports
-coverage.txt
-coverage.html
+# Go profiling files
+*.prof
+*.pprof
+cpu.prof
+mem.prof
+
+# golangci-lint cache
+.golangci-lint-cache/
+
+# macOS additional files
+._*
+.AppleDouble
+.LSOverride
+Icon
+.DS_Store?
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux files
+.directory
+.Trash-*
+
+# Documentation build outputs
+docs/_build/
+site/

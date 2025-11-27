@@ -116,7 +116,9 @@ kilt
 ├── sync                 // Pull latest and apply changes
 ├── doctor               // Validate setup and dependencies
 ├── version              // Show version information
-├── restore <timestamp>  // Restore from backup
+├── restore <backup-id>  // Restore files from a backup
+├── backups              // Manage backups
+│   └── list             // List all available backups
 └── reset                // Clear state and start fresh
 ```
 

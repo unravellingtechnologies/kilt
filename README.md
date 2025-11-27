@@ -155,7 +155,15 @@ See [architecture.md](architecture.md) for the complete configuration schema.
   - Checks file permissions and paths
 - `kilt version` — Show version information
 - `kilt completion [bash|zsh|fish|powershell]` — Generate shell completion scripts
-- `kilt restore <timestamp>` — Restore files from a backup (core functionality implemented)
+- `kilt restore <backup-id>` — Restore files from a backup
+  - Restores files from a backup using the backup ID (format: `YYYYMMDD-HHMMSS`)
+  - Shows preview of files to be restored before confirmation
+  - Use `--force` flag to skip confirmation prompt
+  - Example: `kilt restore 20250125-143022`
+- `kilt backups list` — List all available backups
+  - Shows backup ID, date, time, file count, size, and description
+  - Use `--json` flag for machine-readable JSON output
+  - Example: `kilt backups list` or `kilt backups list --json`
 - `kilt reset` — Clear state and start fresh
 
 ### Global Flags

@@ -259,34 +259,47 @@ func (bm *BackupManager) Restore(backupID string) error {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
-	// Load metadata
-	metadata, err := bm.LoadMetadata(backupID)
+	// Load metadata (using locked version since we already hold the lock)
+	metadata, err := bm.loadMetadataLocked(backupID)
 	if err != nil {
-		return fmt.Errorf("failed to load backup metadata: %w", err)
+		return fmt.Errorf("failed to load backup metadata for %s: %w\nHint: Verify the backup ID is correct and the backup directory is accessible", backupID, err)
+	}
+
+	// Validate backup integrity
+	if len(metadata.Files) == 0 {
+		return fmt.Errorf("backup %s contains no files - backup may be corrupted or incomplete", backupID)
 	}
 
 	// Restore each file
-	for _, file := range metadata.Files {
+	restoredCount := 0
+	for i, file := range metadata.Files {
 		// Check if backup file exists
 		if _, err := os.Stat(file.BackupPath); os.IsNotExist(err) {
-			return fmt.Errorf("backup file not found: %s", file.BackupPath)
+			return fmt.Errorf("backup file not found: %s\nThis indicates backup corruption. File %d of %d failed to restore.\nHint: Check backup integrity or try a different backup", file.BackupPath, i+1, len(metadata.Files))
 		}
 
 		// Create destination directory if needed
 		destDir := filepath.Dir(file.OriginalPath)
 		if err := os.MkdirAll(destDir, 0755); err != nil {
-			return fmt.Errorf("failed to create destination directory: %w", err)
+			return fmt.Errorf("failed to create destination directory for %s: %w\nHint: Check filesystem permissions and available disk space", file.OriginalPath, err)
 		}
 
 		// Copy file back
 		if err := copyFile(file.BackupPath, file.OriginalPath); err != nil {
-			return fmt.Errorf("failed to restore file %s: %w", file.OriginalPath, err)
+			return fmt.Errorf("failed to restore file %s (file %d of %d): %w\nHint: Check filesystem permissions and available disk space", file.OriginalPath, i+1, len(metadata.Files), err)
 		}
 
 		// Restore file permissions
 		if err := os.Chmod(file.OriginalPath, file.Mode); err != nil {
-			return fmt.Errorf("failed to restore file permissions: %w", err)
+			return fmt.Errorf("failed to restore file permissions for %s: %w\nHint: Check filesystem permissions", file.OriginalPath, err)
 		}
+
+		restoredCount++
+	}
+
+	// Verify all files were restored
+	if restoredCount != len(metadata.Files) {
+		return fmt.Errorf("restore incomplete: restored %d of %d files", restoredCount, len(metadata.Files))
 	}
 
 	return nil
