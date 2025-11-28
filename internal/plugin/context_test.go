@@ -4,6 +4,9 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockConfig implements Config interface for testing
@@ -55,20 +58,12 @@ func TestExecutionContext_AddChange(t *testing.T) {
 
 	ctx.AddChange(change)
 
-	if len(ctx.Changes) != 1 {
-		t.Fatalf("AddChange() len(ctx.Changes) = %d, want 1", len(ctx.Changes))
-	}
+	require.Len(t, ctx.Changes, 1)
 
 	addedChange := ctx.Changes[0]
-	if addedChange.Type != "test_change" {
-		t.Errorf("AddChange() change.Type = %v, want test_change", addedChange.Type)
-	}
-	if len(addedChange.Files) != 2 {
-		t.Errorf("AddChange() len(change.Files) = %d, want 2", len(addedChange.Files))
-	}
-	if addedChange.Timestamp.IsZero() {
-		t.Error("AddChange() change.Timestamp should be set")
-	}
+	assert.Equal(t, "test_change", addedChange.Type)
+	assert.Len(t, addedChange.Files, 2)
+	assert.False(t, addedChange.Timestamp.IsZero(), "AddChange() change.Timestamp should be set")
 }
 
 func TestExecutionContext_AddError(t *testing.T) {
@@ -86,16 +81,9 @@ func TestExecutionContext_AddError(t *testing.T) {
 	ctx.AddError(nil) // Should not add nil errors
 	ctx.AddError(err2)
 
-	if len(ctx.Errors) != 2 {
-		t.Fatalf("AddError() len(ctx.Errors) = %d, want 2", len(ctx.Errors))
-	}
-
-	if ctx.Errors[0] != err1 {
-		t.Errorf("AddError() ctx.Errors[0] = %v, want %v", ctx.Errors[0], err1)
-	}
-	if ctx.Errors[1] != err2 {
-		t.Errorf("AddError() ctx.Errors[1] = %v, want %v", ctx.Errors[1], err2)
-	}
+	require.Len(t, ctx.Errors, 2)
+	assert.Equal(t, err1, ctx.Errors[0])
+	assert.Equal(t, err2, ctx.Errors[1])
 }
 
 func TestExecutionContext_HasErrors(t *testing.T) {
@@ -125,9 +113,7 @@ func TestExecutionContext_HasErrors(t *testing.T) {
 				StartTime:     time.Now(),
 			}
 
-			if got := ctx.HasErrors(); got != tt.want {
-				t.Errorf("HasErrors() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, ctx.HasErrors())
 		})
 	}
 }
@@ -162,19 +148,12 @@ func TestGetPluginConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetPluginConfig(config, tt.pluginName)
-			if len(result) != len(tt.wantKeys) {
-				t.Errorf("GetPluginConfig() len = %d, want %d", len(result), len(tt.wantKeys))
-			}
+			assert.Len(t, result, len(tt.wantKeys))
 		})
 	}
 
 	// Test with nil config
 	result := GetPluginConfig(nil, "test-plugin")
-	if result == nil {
-		t.Error("GetPluginConfig() with nil config should return empty map, not nil")
-	}
-	if len(result) != 0 {
-		t.Errorf("GetPluginConfig() with nil config len = %d, want 0", len(result))
-	}
+	assert.NotNil(t, result, "GetPluginConfig() with nil config should return empty map, not nil")
+	assert.Empty(t, result, "GetPluginConfig() with nil config should return empty map")
 }
-

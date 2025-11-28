@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestExecutionPhase_String(t *testing.T) {
@@ -20,10 +22,7 @@ func TestExecutionPhase_String(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
-			if got := tt.phase.String(); got != tt.want {
-				t.Errorf("ExecutionPhase.String() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.phase.String())
 		})
 	}
 }
-

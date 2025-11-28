@@ -1,0 +1,35 @@
+# Custom Data File for Templates
+# This file provides custom variables that can be used in template files.
+# Place this file at ~/.kilt/data.yaml or in your dotfiles repository.
+
+# Personal information
+personal:
+  name: "John Doe"
+  email: "john@example.com"
+  github_username: "johndoe"
+
+# Work information
+work:
+  name: "John Doe"
+  email: "john.doe@company.com"
+  github_username: "jdoe-company"
+  company: "Acme Corp"
+
+# Paths
+paths:
+  projects_dir: "~/dev"
+  notes_dir: "~/Documents/notes"
+  screenshots_dir: "~/screenshots"
+
+# Tool preferences
+tools:
+  editor: "nvim"
+  terminal: "kitty"
+  browser: "firefox"
+
+# API keys and tokens (these can also use 1Password: {{ op "path/to/secret" }})
+# Note: Never commit actual secrets to Git! Use 1Password integration instead.
+secrets:
+  github_token: "{{ op \"Private/github-token\" }}"
+  api_key: "{{ op \"Private/api-key\" }}"
+

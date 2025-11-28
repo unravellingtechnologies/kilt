@@ -17,7 +17,7 @@ type mockLogger struct{}
 
 func (m *mockLogger) Debug(msg string, fields ...interface{}) {}
 func (m *mockLogger) Info(msg string, fields ...interface{})  {}
-func (m *mockLogger) Warn(msg string, fields ...interface{}) {}
+func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
 func TestOnePasswordPlugin_Name(t *testing.T) {
@@ -333,4 +333,3 @@ func TestOnePasswordPlugin_getSecret_CacheExpired(t *testing.T) {
 	// But since we can't actually call getSecret without op, we'll just verify the entry exists
 	assert.True(t, found, "Cache entry should exist (even if expired)")
 }
-

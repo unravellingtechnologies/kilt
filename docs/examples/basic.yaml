@@ -1,0 +1,17 @@
+# Basic Kilt Configuration
+# A typical configuration for managing common dotfiles.
+
+dotfiles_repo: "https://github.com/yourusername/dotfiles"
+dotfiles_path: "~/.dotfiles"
+
+# Sync multiple dotfile directories
+dotfiles:
+  - zsh      # All files in zsh/ → ~/
+  - git      # All files in git/ → ~/
+  - vim      # All files in vim/ → ~/
+
+# Create necessary directories
+directories:
+  - ~/dev
+  - ~/Documents/notes
+

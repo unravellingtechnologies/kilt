@@ -207,7 +207,7 @@ func TestDotfilesPlugin_Execute_DirectoryMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	zshDir := filepath.Join(dotfilesPath, "zsh")
 	require.NoError(t, os.MkdirAll(zshDir, 0755))
@@ -282,7 +282,7 @@ func TestDotfilesPlugin_Execute_DirectoryMode_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	zshDir := filepath.Join(dotfilesPath, "zsh")
 	require.NoError(t, os.MkdirAll(zshDir, 0755))
@@ -345,7 +345,7 @@ func TestDotfilesPlugin_Execute_ExplicitMapping(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -411,7 +411,7 @@ func TestDotfilesPlugin_Execute_TemplateFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -491,7 +491,7 @@ func TestDotfilesPlugin_Execute_TemplateFile_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -554,7 +554,7 @@ func TestDotfilesPlugin_Execute_SourceNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -608,7 +608,7 @@ func TestDotfilesPlugin_Execute_InvalidEntry(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -659,7 +659,7 @@ func TestDotfilesPlugin_Execute_ExistingFileBackup(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -731,7 +731,7 @@ func TestDotfilesPlugin_Execute_ExistingSymlink(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -802,7 +802,7 @@ func TestDotfilesPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -876,7 +876,7 @@ func TestDotfilesPlugin_DetermineTargetPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -991,7 +991,7 @@ func TestDotfilesPlugin_ProcessDirectory_MissingDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
 
@@ -1040,7 +1040,7 @@ func TestDotfilesPlugin_Execute_DirectoryWithNestedFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	require.NoError(t, os.MkdirAll(homeDir, 0755))
-	
+
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	configDir := filepath.Join(dotfilesPath, "config")
 	require.NoError(t, os.MkdirAll(configDir, 0755))
@@ -1097,4 +1097,3 @@ func TestDotfilesPlugin_Execute_DirectoryWithNestedFiles(t *testing.T) {
 	_, err = os.Readlink(expectedTarget)
 	assert.NoError(t, err)
 }
-

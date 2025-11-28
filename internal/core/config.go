@@ -1,3 +1,7 @@
+// Package core provides the core engine and configuration management
+// for the Kilt dotfiles manager. It includes configuration parsing,
+// state management, backup operations, template rendering, and the
+// main orchestration engine.
 package core
 
 import (

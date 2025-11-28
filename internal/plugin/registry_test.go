@@ -1,8 +1,10 @@
 package plugin
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockPlugin is a test implementation of the Plugin interface
@@ -75,14 +77,13 @@ func TestPluginRegistry_Register(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := registry.Register(tt.plugin)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Register() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.errType != nil && err != nil {
-				if !errors.Is(err, tt.errType) {
-					t.Errorf("Register() error = %v, wantErr type %v", err, tt.errType)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errType != nil {
+					assert.ErrorIs(t, err, tt.errType)
 				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -91,7 +92,7 @@ func TestPluginRegistry_Register(t *testing.T) {
 func TestPluginRegistry_Get(t *testing.T) {
 	registry := NewRegistry()
 	plugin := &mockPlugin{name: "test-plugin", version: "1.0.0", phase: PhaseCore}
-	registry.Register(plugin)
+	require.NoError(t, registry.Register(plugin))
 
 	tests := []struct {
 		name    string
@@ -113,12 +114,11 @@ func TestPluginRegistry_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := registry.Get(tt.lookup)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && got.Name() != tt.lookup {
-				t.Errorf("Get() = %v, want %v", got.Name(), tt.lookup)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.lookup, got.Name())
 			}
 		})
 	}
@@ -129,26 +129,20 @@ func TestPluginRegistry_Unregister(t *testing.T) {
 	plugin1 := &mockPlugin{name: "plugin1", version: "1.0.0", phase: PhaseCore}
 	plugin2 := &mockPlugin{name: "plugin2", version: "1.0.0", phase: PhaseCore, dependencies: []string{"plugin1"}}
 
-	registry.Register(plugin1)
-	registry.Register(plugin2)
+	require.NoError(t, registry.Register(plugin1))
+	require.NoError(t, registry.Register(plugin2))
 
 	// Try to unregister plugin1 which plugin2 depends on
 	err := registry.Unregister("plugin1")
-	if err == nil {
-		t.Error("Unregister() should fail when plugin has dependencies")
-	}
+	assert.Error(t, err, "Unregister() should fail when plugin has dependencies")
 
 	// Unregister plugin2 first (no dependencies)
 	err = registry.Unregister("plugin2")
-	if err != nil {
-		t.Errorf("Unregister() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
 	// Now unregister plugin1 should work
 	err = registry.Unregister("plugin1")
-	if err != nil {
-		t.Errorf("Unregister() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestPluginRegistry_GetOrderedPlugins(t *testing.T) {
@@ -160,29 +154,19 @@ func TestPluginRegistry_GetOrderedPlugins(t *testing.T) {
 	pluginC := &mockPlugin{name: "plugin-c", version: "1.0.0", phase: PhaseCore, dependencies: []string{"plugin-b"}}
 
 	// Register in reverse order to test ordering
-	registry.Register(pluginC)
-	registry.Register(pluginB)
-	registry.Register(pluginA)
+	require.NoError(t, registry.Register(pluginC))
+	require.NoError(t, registry.Register(pluginB))
+	require.NoError(t, registry.Register(pluginA))
 
 	ordered, err := registry.GetOrderedPlugins()
-	if err != nil {
-		t.Fatalf("GetOrderedPlugins() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify order: A -> B -> C
-	if len(ordered) != 3 {
-		t.Fatalf("GetOrderedPlugins() returned %d plugins, want 3", len(ordered))
-	}
+	require.Len(t, ordered, 3)
 
-	if ordered[0].Name() != "plugin-a" {
-		t.Errorf("GetOrderedPlugins() first plugin = %v, want plugin-a", ordered[0].Name())
-	}
-	if ordered[1].Name() != "plugin-b" {
-		t.Errorf("GetOrderedPlugins() second plugin = %v, want plugin-b", ordered[1].Name())
-	}
-	if ordered[2].Name() != "plugin-c" {
-		t.Errorf("GetOrderedPlugins() third plugin = %v, want plugin-c", ordered[2].Name())
-	}
+	assert.Equal(t, "plugin-a", ordered[0].Name())
+	assert.Equal(t, "plugin-b", ordered[1].Name())
+	assert.Equal(t, "plugin-c", ordered[2].Name())
 }
 
 func TestPluginRegistry_GetOrderedPlugins_CircularDependency(t *testing.T) {
@@ -193,32 +177,24 @@ func TestPluginRegistry_GetOrderedPlugins_CircularDependency(t *testing.T) {
 	pluginB := &mockPlugin{name: "plugin-b", version: "1.0.0", phase: PhaseCore, dependencies: []string{"plugin-a"}}
 	pluginC := &mockPlugin{name: "plugin-c", version: "1.0.0", phase: PhaseCore, dependencies: []string{"plugin-b"}}
 
-	registry.Register(pluginA)
-	registry.Register(pluginB)
-	registry.Register(pluginC)
+	require.NoError(t, registry.Register(pluginA))
+	require.NoError(t, registry.Register(pluginB))
+	require.NoError(t, registry.Register(pluginC))
 
 	_, err := registry.GetOrderedPlugins()
-	if err == nil {
-		t.Error("GetOrderedPlugins() should fail with circular dependency")
-	}
-	if !errors.Is(err, ErrCircularDependency) {
-		t.Errorf("GetOrderedPlugins() error = %v, want %v", err, ErrCircularDependency)
-	}
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrCircularDependency)
 }
 
 func TestPluginRegistry_GetOrderedPlugins_MissingDependency(t *testing.T) {
 	registry := NewRegistry()
 
 	plugin := &mockPlugin{name: "plugin", version: "1.0.0", phase: PhaseCore, dependencies: []string{"non-existent"}}
-	registry.Register(plugin)
+	require.NoError(t, registry.Register(plugin))
 
 	_, err := registry.GetOrderedPlugins()
-	if err == nil {
-		t.Error("GetOrderedPlugins() should fail with missing dependency")
-	}
-	if !errors.Is(err, ErrMissingDependency) {
-		t.Errorf("GetOrderedPlugins() error = %v, want %v", err, ErrMissingDependency)
-	}
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrMissingDependency)
 }
 
 func TestPluginRegistry_GetOrderedPlugins_PhaseOrdering(t *testing.T) {
@@ -229,64 +205,45 @@ func TestPluginRegistry_GetOrderedPlugins_PhaseOrdering(t *testing.T) {
 	plugin2 := &mockPlugin{name: "plugin2", version: "1.0.0", phase: PhasePreSync}
 	plugin3 := &mockPlugin{name: "plugin3", version: "1.0.0", phase: PhaseCore}
 
-	registry.Register(plugin1)
-	registry.Register(plugin2)
-	registry.Register(plugin3)
+	require.NoError(t, registry.Register(plugin1))
+	require.NoError(t, registry.Register(plugin2))
+	require.NoError(t, registry.Register(plugin3))
 
 	ordered, err := registry.GetOrderedPlugins()
-	if err != nil {
-		t.Fatalf("GetOrderedPlugins() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify phase order: PreSync -> Core -> PostSync
-	if len(ordered) != 3 {
-		t.Fatalf("GetOrderedPlugins() returned %d plugins, want 3", len(ordered))
-	}
+	require.Len(t, ordered, 3)
 
-	if ordered[0].Phase() != PhasePreSync {
-		t.Errorf("GetOrderedPlugins() first phase = %v, want PhasePreSync", ordered[0].Phase())
-	}
-	if ordered[1].Phase() != PhaseCore {
-		t.Errorf("GetOrderedPlugins() second phase = %v, want PhaseCore", ordered[1].Phase())
-	}
-	if ordered[2].Phase() != PhasePostSync {
-		t.Errorf("GetOrderedPlugins() third phase = %v, want PhasePostSync", ordered[2].Phase())
-	}
+	assert.Equal(t, PhasePreSync, ordered[0].Phase())
+	assert.Equal(t, PhaseCore, ordered[1].Phase())
+	assert.Equal(t, PhasePostSync, ordered[2].Phase())
 }
 
 func TestPluginRegistry_List(t *testing.T) {
 	registry := NewRegistry()
 
-	registry.Register(&mockPlugin{name: "plugin-c", version: "1.0.0", phase: PhaseCore})
-	registry.Register(&mockPlugin{name: "plugin-a", version: "1.0.0", phase: PhaseCore})
-	registry.Register(&mockPlugin{name: "plugin-b", version: "1.0.0", phase: PhaseCore})
+	require.NoError(t, registry.Register(&mockPlugin{name: "plugin-c", version: "1.0.0", phase: PhaseCore}))
+	require.NoError(t, registry.Register(&mockPlugin{name: "plugin-a", version: "1.0.0", phase: PhaseCore}))
+	require.NoError(t, registry.Register(&mockPlugin{name: "plugin-b", version: "1.0.0", phase: PhaseCore}))
 
 	list := registry.List()
-	if len(list) != 3 {
-		t.Fatalf("List() returned %d plugins, want 3", len(list))
-	}
+	require.Len(t, list, 3)
 
 	// Should be sorted
-	if list[0] != "plugin-a" || list[1] != "plugin-b" || list[2] != "plugin-c" {
-		t.Errorf("List() = %v, want [plugin-a, plugin-b, plugin-c]", list)
-	}
+	assert.Equal(t, "plugin-a", list[0])
+	assert.Equal(t, "plugin-b", list[1])
+	assert.Equal(t, "plugin-c", list[2])
 }
 
 func TestPluginRegistry_Count(t *testing.T) {
 	registry := NewRegistry()
 
-	if registry.Count() != 0 {
-		t.Errorf("Count() = %d, want 0", registry.Count())
-	}
+	assert.Zero(t, registry.Count())
 
-	registry.Register(&mockPlugin{name: "plugin1", version: "1.0.0", phase: PhaseCore})
-	if registry.Count() != 1 {
-		t.Errorf("Count() = %d, want 1", registry.Count())
-	}
+	require.NoError(t, registry.Register(&mockPlugin{name: "plugin1", version: "1.0.0", phase: PhaseCore}))
+	assert.Equal(t, 1, registry.Count())
 
-	registry.Register(&mockPlugin{name: "plugin2", version: "1.0.0", phase: PhaseCore})
-	if registry.Count() != 2 {
-		t.Errorf("Count() = %d, want 2", registry.Count())
-	}
+	require.NoError(t, registry.Register(&mockPlugin{name: "plugin2", version: "1.0.0", phase: PhaseCore}))
+	assert.Equal(t, 2, registry.Count())
 }
-

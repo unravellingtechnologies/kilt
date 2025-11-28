@@ -10,9 +10,80 @@ One command to turn any fresh Mac into *your* Mac in under 5 minutes — complet
 
 ## Quick Start
 
+### Installation
+
+**One-line install** (recommended):
 ```bash
 curl -sL https://get.kilt.pro | bash -s -- https://github.com/you/dotfiles
 ```
+
+This command will:
+1. Download and install Kilt
+2. Clone your dotfiles repository
+3. Set up the Kilt directory structure
+4. Apply your dotfiles configuration
+
+**Manual installation**:
+```bash
+# Download the binary (replace with latest version)
+curl -L https://github.com/unravelling/kilt/releases/latest/download/kilt-darwin-arm64 -o /usr/local/bin/kilt
+chmod +x /usr/local/bin/kilt
+
+# Initialize with your repository
+kilt init https://github.com/you/dotfiles
+
+# Sync your dotfiles
+kilt sync
+```
+
+**Build from source**:
+```bash
+git clone https://github.com/unravelling/kilt.git
+cd kilt
+make build
+make install
+```
+
+### First-Time Setup
+
+1. **Create a dotfiles repository** (if you don't have one):
+   ```bash
+   mkdir -p ~/dotfiles
+   cd ~/dotfiles
+   git init
+   mkdir -p .kilt
+   ```
+
+2. **Create a configuration file**:
+   ```yaml
+   # .kilt/config.yaml
+   dotfiles_repo: "https://github.com/yourusername/dotfiles"
+   dotfiles_path: "~/.dotfiles"
+   
+   dotfiles:
+     - zsh
+     - git
+   ```
+
+3. **Commit and push**:
+   ```bash
+   git add .
+   git commit -m "Initial Kilt configuration"
+   git remote add origin https://github.com/yourusername/dotfiles.git
+   git push -u origin main
+   ```
+
+4. **Install and initialize**:
+   ```bash
+   curl -sL https://get.kilt.pro | bash -s -- https://github.com/yourusername/dotfiles
+   ```
+
+5. **Sync your dotfiles**:
+   ```bash
+   kilt sync
+   ```
+
+See [Example Configurations](docs/examples/) for more configuration examples.
 
 ## Core Principles
 
@@ -87,16 +158,27 @@ Full Go template support with built-in variables:
   - ✅ Directories Plugin (3.3)
   - ✅ Run Once Plugin (3.4)
 
-**In Progress**: Phase 3 - Core Plugins (Alternates, Directories, Run Once, etc.)
+**In Progress**: Phase 6 - Documentation & Polish
 
-This project is currently in early development. See [tasks.md](tasks.md) for the full development roadmap and [architecture.md](architecture.md) for detailed architecture documentation.
+This project is in active development. See [tasks.md](tasks.md) for the full development roadmap and [architecture.md](architecture.md) for detailed architecture documentation.
 
 ## Requirements
 
-- Go 1.21+ (for building from source)
-- Git
-- Bash (for installer script)
-- macOS or Linux
+### Runtime Requirements
+
+- **Git** - For repository operations
+- **Bash** - For installer script (only needed for installation)
+- **macOS or Linux** - Supported operating systems
+
+### Build Requirements (for building from source)
+
+- **Go 1.21+** - For building from source
+- **Make** - For build automation (optional, can use `go build` directly)
+
+### Optional Dependencies
+
+- **Homebrew** - For Brew plugin (can be auto-installed)
+- **1Password CLI** - For 1Password plugin (for secret management)
 
 ## Building from Source
 
@@ -397,51 +479,71 @@ cask "visual-studio-code"
 
 See [architecture.md](architecture.md) for the complete configuration schema.
 
+For more configuration examples, see [docs/examples/](docs/examples/).
+
 ## Commands
 
-- `kilt init <repo-url>` — Initialize from Git repository
-  - Clones the repository to `~/.dotfiles` (configurable via `dotfiles_path`)
-  - Reads configuration from `~/.dotfiles/.kilt/config.yaml`
-  - Sets up the `.kilt` directory structure
-- `kilt sync` — Synchronize dotfiles bidirectionally
-  - **Git synchronization**: Automatically pulls remote changes and pushes local changes
-  - Handles conflicts gracefully (alerts user if manual resolution needed)
-  - Loads and validates configuration
-  - Executes plugins in the correct order to sync dotfiles
-- `kilt doctor` — Validate setup and dependencies
-  - Checks repository initialization
-  - Validates configuration file
-  - Verifies required dependencies (git, etc.)
-  - Checks file permissions and paths
-- `kilt version` — Show version information
-- `kilt completion [bash|zsh|fish|powershell]` — Generate shell completion scripts
-- `kilt restore <backup-id>` — Restore files from a backup
-  - Restores files from a backup using the backup ID (format: `YYYYMMDD-HHMMSS`)
-  - Shows preview of files to be restored before confirmation
-  - Use `--force` flag to skip confirmation prompt
-  - Example: `kilt restore 20250125-143022`
-- `kilt backups list` — List all available backups
-  - Shows backup ID, date, time, file count, size, and description
-  - Use `--json` flag for machine-readable JSON output
-  - Example: `kilt backups list` or `kilt backups list --json`
-- `kilt reset` — Clear state and start fresh
-- `kilt brew install` — Install packages from Brewfile
-  - Runs `brew bundle --file=Brewfile` for configured bundle files
-  - Use `--force` flag to install Homebrew if not found (requires user interaction)
-- `kilt brew update` — Update Homebrew and packages
-  - Runs `brew update` followed by `brew upgrade`
-- `kilt brew cleanup` — Clean up old Homebrew files
-  - Runs `brew cleanup` to free up disk space
+Kilt provides a comprehensive set of commands for managing your dotfiles. Here's a quick overview:
+
+### Core Commands
+
+- **`kilt init <repo-url>`** - Initialize from Git repository
+- **`kilt sync`** - Synchronize dotfiles bidirectionally
+- **`kilt doctor`** - Validate setup and dependencies
+- **`kilt version`** - Show version information
+
+### Backup Commands
+
+- **`kilt restore <backup-id>`** - Restore files from a backup
+- **`kilt backups list`** - List all available backups
+- **`kilt reset`** - Clear state and start fresh
+
+### Plugin Commands
+
+- **`kilt brew install`** - Install packages from Brewfile
+- **`kilt brew update`** - Update Homebrew and packages
+- **`kilt brew cleanup`** - Clean up old Homebrew files
+
+### Utility Commands
+
+- **`kilt completion <shell>`** - Generate shell completion scripts
 
 ### Global Flags
 
-All commands support the following global flags:
+All commands support these global flags:
 
-- `--dry-run` — Show what would happen without executing
-- `--verbose, -v` — Detailed logging output
-- `--config <path>` — Custom config file location (default: `.kilt/config.toml` or `~/.kilt/config.toml`)
-- `--no-color` — Disable colored output
-- `--force` — Skip confirmation prompts
+- `--dry-run` - Show what would happen without executing
+- `--verbose, -v` - Detailed logging output
+- `--config <path>` - Custom config file location
+- `--no-color` - Disable colored output
+- `--force` - Skip confirmation prompts
+
+### Examples
+
+```bash
+# Initialize from repository
+kilt init https://github.com/yourusername/dotfiles
+
+# Sync dotfiles
+kilt sync
+
+# Preview changes
+kilt sync --dry-run
+
+# Validate setup
+kilt doctor
+
+# List backups
+kilt backups list
+
+# Restore from backup
+kilt restore 20250125-143022
+
+# Install Homebrew packages
+kilt brew install
+```
+
+For complete command documentation, see [Command Reference](docs/commands.md).
 
 ## Development
 
@@ -503,15 +605,29 @@ make lint
 make check
 ```
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[Command Reference](docs/commands.md)** - Complete command documentation
+- **[Plugin Documentation](docs/plugins.md)** - Detailed plugin guides
+- **[Example Configurations](docs/examples/)** - Configuration examples
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
+- **[Migration Guide](docs/migration.md)** - Migrating from other tools
+- **[Architecture Documentation](architecture.md)** - System architecture
+- **[Developer Documentation](CONTRIBUTING.md)** - Contributing guidelines
+
 ## Contributing
 
-Contributions are welcome! Please read the architecture documentation and development guide before submitting PRs.
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting PRs.
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Run `make check` to ensure quality
 5. Submit a pull request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## License
 

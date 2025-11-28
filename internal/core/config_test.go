@@ -3,8 +3,10 @@ package core
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -46,65 +48,33 @@ plugins:
   test:
     key: "value"
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
-	if cfg.DataFile == "" {
-		t.Error("LoadConfig() DataFile should not be empty")
-	}
-
-	if cfg.TemplateEngine != "go" {
-		t.Errorf("LoadConfig() TemplateEngine = %v, want 'go'", cfg.TemplateEngine)
-	}
-
-	if cfg.DotfilesRepo != "https://github.com/test/dotfiles" {
-		t.Errorf("LoadConfig() DotfilesRepo = %v, want 'https://github.com/test/dotfiles'", cfg.DotfilesRepo)
-	}
-
-	if len(cfg.Dotfiles) != 3 {
-		t.Errorf("LoadConfig() Dotfiles length = %d, want 3", len(cfg.Dotfiles))
-	}
+	assert.NotEmpty(t, cfg.DataFile)
+	assert.Equal(t, "go", cfg.TemplateEngine)
+	assert.Equal(t, "https://github.com/test/dotfiles", cfg.DotfilesRepo)
+	assert.Len(t, cfg.Dotfiles, 3)
 
 	// Check simple form (directory name)
-	if cfg.Dotfiles[0].Directory != "zsh" {
-		t.Errorf("LoadConfig() Dotfiles[0].Directory = %v, want 'zsh'", cfg.Dotfiles[0].Directory)
-	}
+	assert.Equal(t, "zsh", cfg.Dotfiles[0].Directory)
 
 	// Check complex form (source/target mapping)
 	homeDir, _ := os.UserHomeDir()
 	expectedTarget := filepath.Join(homeDir, ".ssh", "config")
-	if cfg.Dotfiles[2].Target != expectedTarget {
-		t.Errorf("LoadConfig() Dotfiles[2].Target = %v, want %v", cfg.Dotfiles[2].Target, expectedTarget)
-	}
+	assert.Equal(t, expectedTarget, cfg.Dotfiles[2].Target)
 
-	if len(cfg.ExtraRepos) != 1 {
-		t.Errorf("LoadConfig() ExtraRepos length = %d, want 1", len(cfg.ExtraRepos))
-	}
-
-	if len(cfg.Directories) != 2 {
-		t.Errorf("LoadConfig() Directories length = %d, want 2", len(cfg.Directories))
-	}
-
-	if len(cfg.RunOnce) != 1 {
-		t.Errorf("LoadConfig() RunOnce length = %d, want 1", len(cfg.RunOnce))
-	}
-
-	if len(cfg.OnChange) != 1 {
-		t.Errorf("LoadConfig() OnChange length = %d, want 1", len(cfg.OnChange))
-	}
+	assert.Len(t, cfg.ExtraRepos, 1)
+	assert.Len(t, cfg.Directories, 2)
+	assert.Len(t, cfg.RunOnce, 1)
+	assert.Len(t, cfg.OnChange, 1)
 }
 
 func TestLoadConfig_InvalidFile(t *testing.T) {
 	_, err := LoadConfig("/nonexistent/config.yaml")
-	if err == nil {
-		t.Error("LoadConfig() should return error for nonexistent file")
-	}
+	assert.Error(t, err, "LoadConfig() should return error for nonexistent file")
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
@@ -114,14 +84,10 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 	invalidContent := `
 invalid: yaml: content: [
 `
-	if err := os.WriteFile(configPath, []byte(invalidContent), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(invalidContent), 0644))
 
 	_, err := LoadConfig(configPath)
-	if err == nil {
-		t.Error("LoadConfig() should return error for invalid YAML")
-	}
+	assert.Error(t, err, "LoadConfig() should return error for invalid YAML")
 }
 
 func TestFindConfigFile(t *testing.T) {
@@ -132,44 +98,30 @@ func TestFindConfigFile(t *testing.T) {
 
 	// Create .kilt directory
 	kiltDir := filepath.Join(tmpDir, ".kilt")
-	if err := os.MkdirAll(kiltDir, 0755); err != nil {
-		t.Fatalf("Failed to create .kilt directory: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(kiltDir, 0755))
 
 	configPath := filepath.Join(kiltDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte("# test config"), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0644))
 
 	found, err := FindConfigFile()
-	if err != nil {
-		t.Fatalf("FindConfigFile() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
 	// Resolve symlinks for comparison (macOS uses /private/var for /var)
 	foundResolved, _ := filepath.EvalSymlinks(found)
 	configPathResolved, _ := filepath.EvalSymlinks(configPath)
-	if foundResolved != configPathResolved {
-		t.Errorf("FindConfigFile() = %v (resolved: %v), want %v (resolved: %v)", found, foundResolved, configPath, configPathResolved)
-	}
+	assert.Equal(t, configPathResolved, foundResolved)
 }
 
 func TestFindConfigFile_HomeDir(t *testing.T) {
 	// Test with home directory config
 	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
+	require.NoError(t, err)
 
 	kiltDir := filepath.Join(homeDir, ".kilt")
-	if err := os.MkdirAll(kiltDir, 0755); err != nil {
-		t.Fatalf("Failed to create .kilt directory: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(kiltDir, 0755))
 
 	configPath := filepath.Join(kiltDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte("# test config"), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0644))
 	defer os.Remove(configPath)
 
 	// Change to a directory without .kilt/config.yaml
@@ -178,13 +130,8 @@ func TestFindConfigFile_HomeDir(t *testing.T) {
 	defer os.Chdir("/")
 
 	found, err := FindConfigFile()
-	if err != nil {
-		t.Fatalf("FindConfigFile() error = %v, want nil", err)
-	}
-
-	if found != configPath {
-		t.Errorf("FindConfigFile() = %v, want %v", found, configPath)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, configPath, found)
 }
 
 func TestFindConfigFile_NotFound(t *testing.T) {
@@ -201,16 +148,12 @@ func TestFindConfigFile_NotFound(t *testing.T) {
 	os.Remove(dotfilesConfig)
 
 	_, err := FindConfigFile()
-	if err == nil {
-		t.Error("FindConfigFile() should return error when config not found")
-	}
+	assert.Error(t, err, "FindConfigFile() should return error when config not found")
 }
 
 func TestExpandPath(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -270,12 +213,11 @@ func TestExpandPath(t *testing.T) {
 			}
 
 			got, err := ExpandPath(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ExpandPath() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("ExpandPath() = %v, want %v", got, tt.want)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
@@ -298,25 +240,12 @@ func TestExpandPaths(t *testing.T) {
 	}
 
 	err := ExpandPaths(cfg)
-	if err != nil {
-		t.Fatalf("ExpandPaths() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
-	if cfg.DotfilesPath != filepath.Join(homeDir, ".dotfiles") {
-		t.Errorf("ExpandPaths() DotfilesPath = %v, want %v", cfg.DotfilesPath, filepath.Join(homeDir, ".dotfiles"))
-	}
-
-	if cfg.DataFile != filepath.Join(homeDir, "data.yaml") {
-		t.Errorf("ExpandPaths() DataFile = %v, want %v", cfg.DataFile, filepath.Join(homeDir, "data.yaml"))
-	}
-
-	if cfg.Dotfiles[0].Target != filepath.Join(homeDir, ".target") {
-		t.Errorf("ExpandPaths() Dotfiles[0].Target = %v, want %v", cfg.Dotfiles[0].Target, filepath.Join(homeDir, ".target"))
-	}
-
-	if cfg.ExtraRepos[0].Path != filepath.Join(homeDir, "repo") {
-		t.Errorf("ExpandPaths() ExtraRepos[0].Path = %v, want %v", cfg.ExtraRepos[0].Path, filepath.Join(homeDir, "repo"))
-	}
+	assert.Equal(t, filepath.Join(homeDir, ".dotfiles"), cfg.DotfilesPath)
+	assert.Equal(t, filepath.Join(homeDir, "data.yaml"), cfg.DataFile)
+	assert.Equal(t, filepath.Join(homeDir, ".target"), cfg.Dotfiles[0].Target)
+	assert.Equal(t, filepath.Join(homeDir, "repo"), cfg.ExtraRepos[0].Path)
 }
 
 func TestValidateConfig(t *testing.T) {
@@ -438,8 +367,10 @@ func TestValidateConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateConfig(tt.cfg)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateConfig() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -465,9 +396,7 @@ func TestIsValidFileMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.mode, func(t *testing.T) {
 			got := isValidFileMode(tt.mode)
-			if got != tt.want {
-				t.Errorf("isValidFileMode(%q) = %v, want %v", tt.mode, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -485,32 +414,21 @@ func TestGetPluginConfig(t *testing.T) {
 
 	// Test existing plugin config
 	pluginConfig := cfg.GetPluginConfig("test")
-	if pluginConfig == nil {
-		t.Fatal("GetPluginConfig() returned nil for existing plugin")
-	}
-
-	if pluginConfig["key1"] != "value1" {
-		t.Errorf("GetPluginConfig() key1 = %v, want 'value1'", pluginConfig["key1"])
-	}
+	require.NotNil(t, pluginConfig, "GetPluginConfig() returned nil for existing plugin")
+	assert.Equal(t, "value1", pluginConfig["key1"])
 
 	// Test non-existent plugin
 	pluginConfig = cfg.GetPluginConfig("nonexistent")
-	if pluginConfig != nil {
-		t.Error("GetPluginConfig() should return nil for non-existent plugin")
-	}
+	assert.Nil(t, pluginConfig, "GetPluginConfig() should return nil for non-existent plugin")
 
 	// Test plugin with non-map value
 	pluginConfig = cfg.GetPluginConfig("other")
-	if pluginConfig != nil {
-		t.Error("GetPluginConfig() should return nil for non-map plugin config")
-	}
+	assert.Nil(t, pluginConfig, "GetPluginConfig() should return nil for non-map plugin config")
 
 	// Test nil plugins map
 	cfg.Plugins = nil
 	pluginConfig = cfg.GetPluginConfig("test")
-	if pluginConfig != nil {
-		t.Error("GetPluginConfig() should return nil when Plugins is nil")
-	}
+	assert.Nil(t, pluginConfig, "GetPluginConfig() should return nil when Plugins is nil")
 }
 
 func TestMergeConfigs(t *testing.T) {
@@ -553,57 +471,25 @@ func TestMergeConfigs(t *testing.T) {
 
 	merged := MergeConfigs(base, override)
 
-	if merged.DotfilesRepo != "https://github.com/override/dotfiles" {
-		t.Errorf("MergeConfigs() DotfilesRepo = %v, want 'https://github.com/override/dotfiles'", merged.DotfilesRepo)
-	}
-
-	if merged.DotfilesPath != "~/.base_dotfiles" {
-		t.Errorf("MergeConfigs() DotfilesPath = %v, want '~/.base_dotfiles'", merged.DotfilesPath)
-	}
-
-	if merged.DataFile != "override_data.yaml" {
-		t.Errorf("MergeConfigs() DataFile = %v, want 'override_data.yaml'", merged.DataFile)
-	}
-
-	if merged.TemplateEngine != "go" {
-		t.Errorf("MergeConfigs() TemplateEngine = %v, want 'go'", merged.TemplateEngine)
-	}
-
-	if len(merged.Dotfiles) != 2 {
-		t.Errorf("MergeConfigs() Dotfiles length = %d, want 2", len(merged.Dotfiles))
-	}
-
-	if len(merged.ExtraRepos) != 2 {
-		t.Errorf("MergeConfigs() ExtraRepos length = %d, want 2", len(merged.ExtraRepos))
-	}
-
-	if len(merged.Directories) != 2 {
-		t.Errorf("MergeConfigs() Directories length = %d, want 2", len(merged.Directories))
-	}
-
-	if len(merged.RunOnce) != 2 {
-		t.Errorf("MergeConfigs() RunOnce length = %d, want 2", len(merged.RunOnce))
-	}
-
-	if len(merged.OnChange) != 2 {
-		t.Errorf("MergeConfigs() OnChange length = %d, want 2", len(merged.OnChange))
-	}
+	assert.Equal(t, "https://github.com/override/dotfiles", merged.DotfilesRepo)
+	assert.Equal(t, "~/.base_dotfiles", merged.DotfilesPath)
+	assert.Equal(t, "override_data.yaml", merged.DataFile)
+	assert.Equal(t, "go", merged.TemplateEngine)
+	assert.Len(t, merged.Dotfiles, 2)
+	assert.Len(t, merged.ExtraRepos, 2)
+	assert.Len(t, merged.Directories, 2)
+	assert.Len(t, merged.RunOnce, 2)
+	assert.Len(t, merged.OnChange, 2)
 
 	// Check plugin merging
-	if merged.Plugins["base"] == nil {
-		t.Error("MergeConfigs() should preserve base plugin config")
-	}
-	if merged.Plugins["override"] == nil {
-		t.Error("MergeConfigs() should include override plugin config")
-	}
+	assert.NotNil(t, merged.Plugins["base"], "MergeConfigs() should preserve base plugin config")
+	assert.NotNil(t, merged.Plugins["override"], "MergeConfigs() should include override plugin config")
 }
 
 func TestGenerateSchemaDoc(t *testing.T) {
 	doc := GenerateSchemaDoc()
 
-	if doc == "" {
-		t.Error("GenerateSchemaDoc() returned empty string")
-	}
+	assert.NotEmpty(t, doc, "GenerateSchemaDoc() returned empty string")
 
 	// Check for key sections
 	expectedSections := []string{
@@ -618,9 +504,7 @@ func TestGenerateSchemaDoc(t *testing.T) {
 	}
 
 	for _, section := range expectedSections {
-		if !strings.Contains(doc, section) {
-			t.Errorf("GenerateSchemaDoc() missing section: %s", section)
-		}
+		assert.Contains(t, doc, section, "GenerateSchemaDoc() missing section: %s", section)
 	}
 }
 
@@ -638,18 +522,11 @@ func TestExpandPaths_PluginPaths(t *testing.T) {
 	}
 
 	err := ExpandPaths(cfg)
-	if err != nil {
-		t.Fatalf("ExpandPaths() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
 	pluginConfig := cfg.Plugins["test"].(map[string]interface{})
-	if pluginConfig["path1"] != filepath.Join(homeDir, "plugin_path1") {
-		t.Errorf("ExpandPaths() plugin path1 = %v, want %v", pluginConfig["path1"], filepath.Join(homeDir, "plugin_path1"))
-	}
-
-	if pluginConfig["non_path"] != "regular_value" {
-		t.Errorf("ExpandPaths() should not modify non-path values")
-	}
+	assert.Equal(t, filepath.Join(homeDir, "plugin_path1"), pluginConfig["path1"])
+	assert.Equal(t, "regular_value", pluginConfig["non_path"], "ExpandPaths() should not modify non-path values")
 }
 
 func TestDotfileEntry_UnmarshalYAML(t *testing.T) {
@@ -663,22 +540,13 @@ dotfiles:
   - git
   - vim
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	cfg, err := LoadConfig(configPath)
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(cfg.Dotfiles) != 3 {
-		t.Fatalf("Expected 3 dotfiles, got %d", len(cfg.Dotfiles))
-	}
-
-	if cfg.Dotfiles[0].Directory != "zsh" {
-		t.Errorf("Dotfiles[0].Directory = %v, want 'zsh'", cfg.Dotfiles[0].Directory)
-	}
+	require.Len(t, cfg.Dotfiles, 3)
+	assert.Equal(t, "zsh", cfg.Dotfiles[0].Directory)
 
 	// Test map form
 	configPath2 := filepath.Join(tmpDir, "config2.yaml")
@@ -689,30 +557,15 @@ dotfiles:
     mode: "0600"
     template: true
 `
-	if err := os.WriteFile(configPath2, []byte(configContent2), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath2, []byte(configContent2), 0644))
 
 	cfg2, err := LoadConfig(configPath2)
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(cfg2.Dotfiles) != 1 {
-		t.Fatalf("Expected 1 dotfile, got %d", len(cfg2.Dotfiles))
-	}
-
-	if cfg2.Dotfiles[0].Source != "ssh/config" {
-		t.Errorf("Dotfiles[0].Source = %v, want 'ssh/config'", cfg2.Dotfiles[0].Source)
-	}
-
-	if cfg2.Dotfiles[0].Mode != "0600" {
-		t.Errorf("Dotfiles[0].Mode = %v, want '0600'", cfg2.Dotfiles[0].Mode)
-	}
-
-	if !cfg2.Dotfiles[0].Template {
-		t.Error("Dotfiles[0].Template should be true")
-	}
+	require.Len(t, cfg2.Dotfiles, 1)
+	assert.Equal(t, "ssh/config", cfg2.Dotfiles[0].Source)
+	assert.Equal(t, "0600", cfg2.Dotfiles[0].Mode)
+	assert.True(t, cfg2.Dotfiles[0].Template)
 }
 
 func TestDefaultDotfilesPath(t *testing.T) {
@@ -720,7 +573,5 @@ func TestDefaultDotfilesPath(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 	expected := filepath.Join(homeDir, ".dotfiles")
 
-	if path != expected {
-		t.Errorf("DefaultDotfilesPath() = %v, want %v", path, expected)
-	}
+	assert.Equal(t, expected, path)
 }

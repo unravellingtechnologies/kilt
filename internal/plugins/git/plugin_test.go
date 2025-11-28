@@ -438,7 +438,7 @@ func TestGitPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
 	cmd = exec.Command("git", "config", "user.email", "test@example.com")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
-	
+
 	cmd = exec.Command("git", "config", "user.name", "Test User")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -448,7 +448,7 @@ func TestGitPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
 	cmd = exec.Command("git", "add", "README.md")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
-	
+
 	cmd = exec.Command("git", "commit", "-m", "Initial commit")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())

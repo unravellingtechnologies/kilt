@@ -1,3 +1,6 @@
+// Package plugin provides the plugin system architecture for Kilt.
+// It defines the Plugin interface, execution phases, plugin contexts,
+// and provides utilities for plugin registration, discovery, and execution.
 package plugin
 
 import (

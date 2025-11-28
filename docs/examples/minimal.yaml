@@ -1,0 +1,10 @@
+# Minimal Kilt Configuration
+# This is the simplest possible configuration to get started with Kilt.
+
+dotfiles_repo: "https://github.com/yourusername/dotfiles"
+dotfiles_path: "~/.dotfiles"
+
+# Sync all files from the zsh directory to home
+dotfiles:
+  - zsh
+

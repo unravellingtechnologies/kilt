@@ -3,6 +3,9 @@ package plugin
 import (
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockPluginContext creates a minimal PluginContext for testing
@@ -24,29 +27,22 @@ func TestPluginLoader_LoadPlugins(t *testing.T) {
 	loader := NewLoader(registry)
 
 	// Create a mock plugin that initializes successfully
-	plugin := &mockPlugin{
+	mockPlugin := &mockPlugin{
 		name:        "test-plugin",
 		version:     "1.0.0",
 		description: "Test plugin",
 		phase:       PhaseCore,
 	}
 
-	registry.Register(plugin)
+	registry.Register(mockPlugin)
 
 	ctx := mockPluginContext()
 
 	err := loader.LoadPlugins(ctx)
-	if err != nil {
-		t.Fatalf("LoadPlugins() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
-	if !plugin.initialized {
-		t.Error("LoadPlugins() plugin.Initialize() was not called")
-	}
-
-	if !plugin.validated {
-		t.Error("LoadPlugins() plugin.Validate() was not called")
-	}
+	assert.True(t, mockPlugin.initialized, "LoadPlugins() plugin.Initialize() was not called")
+	assert.True(t, mockPlugin.validated, "LoadPlugins() plugin.Validate() was not called")
 }
 
 func TestPluginLoader_LoadPlugins_InitializationError(t *testing.T) {
@@ -54,7 +50,7 @@ func TestPluginLoader_LoadPlugins_InitializationError(t *testing.T) {
 	loader := NewLoader(registry)
 
 	// Create a plugin that fails to initialize
-	plugin := &failingMockPlugin{
+	mockPlugin := &failingMockPlugin{
 		mockPlugin: mockPlugin{
 			name:        "failing-plugin",
 			version:     "1.0.0",
@@ -64,14 +60,12 @@ func TestPluginLoader_LoadPlugins_InitializationError(t *testing.T) {
 		initError: errors.New("initialization failed"),
 	}
 
-	registry.Register(plugin)
+	registry.Register(mockPlugin)
 
 	ctx := mockPluginContext()
 
 	err := loader.LoadPlugins(ctx)
-	if err == nil {
-		t.Error("LoadPlugins() error = nil, want error")
-	}
+	assert.Error(t, err)
 }
 
 func TestPluginLoader_LoadPlugins_ValidationError(t *testing.T) {
@@ -79,7 +73,7 @@ func TestPluginLoader_LoadPlugins_ValidationError(t *testing.T) {
 	loader := NewLoader(registry)
 
 	// Create a plugin that fails validation
-	plugin := &failingMockPlugin{
+	mockPlugin := &failingMockPlugin{
 		mockPlugin: mockPlugin{
 			name:        "invalid-plugin",
 			version:     "1.0.0",
@@ -89,40 +83,32 @@ func TestPluginLoader_LoadPlugins_ValidationError(t *testing.T) {
 		validateError: errors.New("validation failed"),
 	}
 
-	registry.Register(plugin)
+	registry.Register(mockPlugin)
 
 	ctx := mockPluginContext()
 
 	err := loader.LoadPlugins(ctx)
-	if err == nil {
-		t.Error("LoadPlugins() error = nil, want error")
-	}
+	assert.Error(t, err)
 }
 
 func TestRegisterPlugin(t *testing.T) {
 	// Reset default registry
 	defaultRegistry = NewRegistry()
 
-	plugin := &mockPlugin{
+	mockPlugin := &mockPlugin{
 		name:    "default-plugin",
 		version: "1.0.0",
 		phase:   PhaseCore,
 	}
 
-	err := RegisterPlugin(plugin)
-	if err != nil {
-		t.Fatalf("RegisterPlugin() error = %v, want nil", err)
-	}
+	err := RegisterPlugin(mockPlugin)
+	require.NoError(t, err)
 
 	// Verify it's in the default registry
 	reg := GetDefaultRegistry()
 	got, err := reg.Get("default-plugin")
-	if err != nil {
-		t.Fatalf("Get() error = %v, want nil", err)
-	}
-	if got.Name() != "default-plugin" {
-		t.Errorf("Get() = %v, want default-plugin", got.Name())
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "default-plugin", got.Name())
 }
 
 // failingMockPlugin is a plugin that can fail initialization or validation
@@ -145,4 +131,3 @@ func (f *failingMockPlugin) Validate() error {
 	}
 	return f.mockPlugin.Validate()
 }
-
