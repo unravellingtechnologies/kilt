@@ -514,9 +514,29 @@ All commands support these global flags:
 
 - `--dry-run` - Show what would happen without executing
 - `--verbose, -v` - Detailed logging output
+- `--debug` - Enable debug logging (includes verbose, shows timestamps)
 - `--config <path>` - Custom config file location
 - `--no-color` - Disable colored output
 - `--force` - Skip confirmation prompts
+
+### Logging and Output
+
+Kilt provides structured logging with color support:
+
+- **Colorized output**: Success messages (green), errors (red), warnings (yellow), info (blue)
+- **Log levels**: Debug, Info, Warn, Error
+- **Progress indicators**: Progress bars for long operations, spinners for indeterminate tasks
+- **Error messages**: Helpful error messages with suggestions and context
+- **Respects `--no-color`**: Automatically disables colors when output is not a terminal
+
+Example output:
+```
+INFO Syncing dotfiles...
+✓ Successfully synced 15 files
+WARN Some files were skipped (unchanged)
+ERROR Failed to sync file: permission denied
+Suggestion: Check file permissions with 'ls -la ~/.zshrc'
+```
 
 ### Examples
 
@@ -614,6 +634,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Example Configurations](docs/examples/)** - Configuration examples
 - **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
 - **[Migration Guide](docs/migration.md)** - Migrating from other tools
+- **[Security Audit](docs/security-audit.md)** - Security considerations and audit results
 - **[Architecture Documentation](architecture.md)** - System architecture
 - **[Developer Documentation](CONTRIBUTING.md)** - Contributing guidelines
 
