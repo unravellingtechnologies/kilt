@@ -3,9 +3,10 @@ package brew
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -14,64 +15,21 @@ import (
 type mockLogger struct{}
 
 func (m *mockLogger) Debug(msg string, fields ...interface{}) {}
-func (m *mockLogger) Info(msg string, fields ...interface{})   {}
+func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func TestBrewPlugin_Name(t *testing.T) {
-	p := &BrewPlugin{}
-	if p.Name() != "brew" {
-		t.Errorf("Name() = %v, want 'brew'", p.Name())
-	}
-}
-
-func TestBrewPlugin_Version(t *testing.T) {
-	p := &BrewPlugin{}
-	if p.Version() != "1.0.0" {
-		t.Errorf("Version() = %v, want '1.0.0'", p.Version())
-	}
-}
-
-func TestBrewPlugin_Phase(t *testing.T) {
-	p := &BrewPlugin{}
-	if p.Phase() != plugin.PhaseIntegration {
-		t.Errorf("Phase() = %v, want PhaseIntegration", p.Phase())
-	}
-}
-
-func TestBrewPlugin_Dependencies(t *testing.T) {
-	p := &BrewPlugin{}
-	deps := p.Dependencies()
-	if len(deps) != 0 {
-		t.Errorf("Dependencies() = %v, want empty slice", deps)
-	}
-}
-
-func TestBrewPlugin_Initialize(t *testing.T) {
-	tmpDir := t.TempDir()
-	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
+func setupBrewPlugin(t *testing.T, workDir string, cfg *core.Config) (*BrewPlugin, *plugin.PluginContext) {
+	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
+	require.NoError(t, err)
 
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
+	backupDir := filepath.Join(filepath.Dir(workDir), ".kilt", "backup")
 	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
+	require.NoError(t, err)
 
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
-
-	cfg := &core.Config{
-		Plugins: map[string]interface{}{},
-	}
 
 	ctx := &plugin.PluginContext{
 		Config:   cfg,
@@ -85,53 +43,54 @@ func TestBrewPlugin_Initialize(t *testing.T) {
 	}
 
 	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
+	require.NoError(t, p.Initialize(ctx))
+
+	return p, ctx
+}
+
+func TestBrewPlugin_Name(t *testing.T) {
+	p := &BrewPlugin{}
+	assert.Equal(t, "brew", p.Name())
+}
+
+func TestBrewPlugin_Version(t *testing.T) {
+	p := &BrewPlugin{}
+	assert.Equal(t, "1.0.0", p.Version())
+}
+
+func TestBrewPlugin_Phase(t *testing.T) {
+	p := &BrewPlugin{}
+	assert.Equal(t, plugin.PhaseIntegration, p.Phase())
+}
+
+func TestBrewPlugin_Dependencies(t *testing.T) {
+	p := &BrewPlugin{}
+	deps := p.Dependencies()
+	assert.Empty(t, deps)
+}
+
+func TestBrewPlugin_Initialize(t *testing.T) {
+	tmpDir := t.TempDir()
+	workDir := filepath.Join(tmpDir, "repo")
+	require.NoError(t, os.MkdirAll(workDir, 0755))
+
+	cfg := &core.Config{
+		Plugins: map[string]interface{}{},
 	}
 
-	if p.ctx == nil {
-		t.Error("Plugin context should be set")
-	}
+	p, _ := setupBrewPlugin(t, workDir, cfg)
 
-	// Check defaults
-	if p.brewfile != "Brewfile" {
-		t.Errorf("brewfile = %v, want 'Brewfile'", p.brewfile)
-	}
-
-	if p.autoUpdate != false {
-		t.Errorf("autoUpdate = %v, want false", p.autoUpdate)
-	}
-
-	if p.cleanupAfter != false {
-		t.Errorf("cleanupAfter = %v, want false", p.cleanupAfter)
-	}
-
-	if p.autoInstall != false {
-		t.Errorf("autoInstall = %v, want false", p.autoInstall)
-	}
+	assert.NotNil(t, p.ctx)
+	assert.Equal(t, "Brewfile", p.brewfile)
+	assert.False(t, p.autoUpdate)
+	assert.False(t, p.cleanupAfter)
+	assert.False(t, p.autoInstall)
 }
 
 func TestBrewPlugin_Initialize_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -145,132 +104,41 @@ func TestBrewPlugin_Initialize_WithConfig(t *testing.T) {
 		},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
+	p, _ := setupBrewPlugin(t, workDir, cfg)
 
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
-
-	if p.brewfile != "custom/Brewfile" {
-		t.Errorf("brewfile = %v, want 'custom/Brewfile'", p.brewfile)
-	}
-
-	if p.autoUpdate != true {
-		t.Errorf("autoUpdate = %v, want true", p.autoUpdate)
-	}
-
-	if p.cleanupAfter != true {
-		t.Errorf("cleanupAfter = %v, want true", p.cleanupAfter)
-	}
-
-	if len(p.bundles) != 2 {
-		t.Errorf("bundles length = %v, want 2", len(p.bundles))
-	}
-
-	if p.autoInstall != true {
-		t.Errorf("autoInstall = %v, want true", p.autoInstall)
-	}
+	assert.Equal(t, "custom/Brewfile", p.brewfile)
+	assert.True(t, p.autoUpdate)
+	assert.True(t, p.cleanupAfter)
+	assert.Len(t, p.bundles, 2)
+	assert.True(t, p.autoInstall)
 }
 
 func TestBrewPlugin_Validate(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, _ := setupBrewPlugin(t, workDir, cfg)
 
 	// Validate should pass (even if brew is not installed)
-	if err := p.Validate(); err != nil {
-		t.Fatalf("Validate() error = %v, want nil", err)
-	}
+	err := p.Validate()
+	assert.NoError(t, err)
 }
 
 func TestBrewPlugin_Execute_NoBrew(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupBrewPlugin(t, workDir, cfg)
 
 	// Set brewPath to empty to simulate brew not found
 	p.brewPath = ""
@@ -282,63 +150,26 @@ func TestBrewPlugin_Execute_NoBrew(t *testing.T) {
 	}
 
 	// Execute should skip gracefully
-	if err := p.Execute(execCtx); err != nil {
-		t.Fatalf("Execute() error = %v, want nil", err)
-	}
-
-	// Should not execute anything
-	if len(execCtx.Changes) != 0 {
-		t.Errorf("Expected 0 changes when brew is not installed, got %d", len(execCtx.Changes))
-	}
+	err := p.Execute(execCtx)
+	assert.NoError(t, err)
+	assert.Empty(t, execCtx.Changes)
 }
 
 func TestBrewPlugin_Execute_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	// Create a test Brewfile
 	brewfilePath := filepath.Join(workDir, "Brewfile")
-	if err := os.WriteFile(brewfilePath, []byte("brew 'test'\n"), 0644); err != nil {
-		t.Fatalf("Failed to create Brewfile: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.WriteFile(brewfilePath, []byte("brew 'test'\n"), 0644))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   true,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	ctx.DryRun = true
 
 	// Set a mock brew path for testing
 	p.brewPath = "/usr/local/bin/brew"
@@ -350,9 +181,8 @@ func TestBrewPlugin_Execute_DryRun(t *testing.T) {
 	}
 
 	// Execute in dry-run mode
-	if err := p.Execute(execCtx); err != nil {
-		t.Fatalf("Execute() error = %v, want nil", err)
-	}
+	err := p.Execute(execCtx)
+	assert.NoError(t, err)
 
 	// Should record dry-run changes
 	found := false
@@ -362,32 +192,13 @@ func TestBrewPlugin_Execute_DryRun(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Error("Expected brew_bundle change to be recorded in dry-run")
-	}
+	assert.True(t, found, "Expected brew_bundle change to be recorded in dry-run")
 }
 
 func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -397,21 +208,8 @@ func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
 		},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   true,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	ctx.DryRun = true
 
 	// Set a mock brew path for testing
 	p.brewPath = "/usr/local/bin/brew"
@@ -423,9 +221,8 @@ func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
 	}
 
 	// Execute in dry-run mode
-	if err := p.Execute(execCtx); err != nil {
-		t.Fatalf("Execute() error = %v, want nil", err)
-	}
+	err := p.Execute(execCtx)
+	assert.NoError(t, err)
 
 	// Should record changes for each bundle
 	bundleCount := 0
@@ -434,75 +231,36 @@ func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
 			bundleCount++
 		}
 	}
-	if bundleCount != 2 {
-		t.Errorf("Expected 2 brew_bundle changes, got %d", bundleCount)
-	}
+	assert.Equal(t, 2, bundleCount)
 }
 
-func TestBrewPlugin_pathsMatch(t *testing.T) {
+func TestBrewPlugin_PathsMatch(t *testing.T) {
 	p := &BrewPlugin{}
 
 	// Test identical paths
-	if !p.pathsMatch("/path/to/file", "/path/to/file") {
-		t.Error("pathsMatch() should return true for identical paths")
-	}
+	assert.True(t, p.pathsMatch("/path/to/file", "/path/to/file"))
 
 	// Test relative vs absolute (same file)
 	tmpDir := t.TempDir()
 	absPath := filepath.Join(tmpDir, "file")
 	relPath := filepath.Join(tmpDir, "file")
 
-	if !p.pathsMatch(absPath, relPath) {
-		t.Error("pathsMatch() should match paths referring to same file")
-	}
+	assert.True(t, p.pathsMatch(absPath, relPath))
 
 	// Test different paths
-	if p.pathsMatch("/path/to/file1", "/path/to/file2") {
-		t.Error("pathsMatch() should return false for different files")
-	}
+	assert.False(t, p.pathsMatch("/path/to/file1", "/path/to/file2"))
 }
 
 func TestBrewPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupBrewPlugin(t, workDir, cfg)
 
 	// Simulate executed bundles
 	p.executedBundles = []string{filepath.Join(workDir, "Brewfile")}
@@ -514,42 +272,16 @@ func TestBrewPlugin_Rollback(t *testing.T) {
 	}
 
 	// Rollback
-	if err := p.Rollback(rollbackCtx); err != nil {
-		t.Fatalf("Rollback() error = %v, want nil", err)
-	}
-
-	// Verify rollback changes were recorded
-	if len(rollbackCtx.Changes) == 0 {
-		t.Error("Expected rollback changes to be recorded")
-	}
-
-	// Verify executed bundles were cleared
-	if len(p.executedBundles) != 0 {
-		t.Error("Executed bundles should be cleared after rollback")
-	}
+	err := p.Rollback(rollbackCtx)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, rollbackCtx.Changes)
+	assert.Empty(t, p.executedBundles)
 }
 
 func TestBrewPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -559,32 +291,15 @@ func TestBrewPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
 		},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   true,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &BrewPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	ctx.DryRun = true
 
 	// Verify autoInstall is enabled
-	if p.autoInstall != true {
-		t.Errorf("autoInstall = %v, want true", p.autoInstall)
-	}
+	assert.True(t, p.autoInstall)
 
 	// If brew is already installed, we can't test the install path
 	// So we'll force brewPath to empty to simulate brew not found
-	if p.brewPath != "" {
-		p.brewPath = ""
-	}
+	p.brewPath = ""
 
 	execCtx := &plugin.ExecutionContext{
 		PluginContext: ctx,
@@ -593,23 +308,17 @@ func TestBrewPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
 	}
 
 	// Execute in dry-run mode - should attempt to install
-	if err := p.Execute(execCtx); err != nil {
-		t.Fatalf("Execute() error = %v, want nil", err)
-	}
+	err := p.Execute(execCtx)
+	assert.NoError(t, err)
 
 	// Should record dry-run installation
 	found := false
 	for _, change := range execCtx.Changes {
 		if change.Type == "brew_install" {
 			found = true
-			if !strings.Contains(change.Description, "Would install") {
-				t.Error("Dry-run change should indicate 'Would install'")
-			}
+			assert.Contains(t, change.Description, "Would install")
 			break
 		}
 	}
-	if !found {
-		t.Error("Expected brew_install change to be recorded in dry-run")
-	}
+	assert.True(t, found, "Expected brew_install change to be recorded in dry-run")
 }
-

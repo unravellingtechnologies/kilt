@@ -1,0 +1,42 @@
+data_file: "data.yaml"
+template_engine: "go"
+dotfiles_repo: "https://github.com/test/dotfiles"
+dotfiles_path: "~/.dotfiles"
+
+dotfiles:
+  - zsh
+  - git
+  - vim
+  - source: ssh/config
+    target: ~/.ssh/config
+    mode: "0600"
+    template: true
+  - source: git/config
+    target: ~/.gitconfig
+    template: true
+
+extra_repos:
+  - url: "https://github.com/test/repo"
+    path: "~/.test/repo"
+    branch: "main"
+
+directories:
+  - "~/dev/personal"
+  - "~/dev/work"
+  - "~/.config"
+
+run_once:
+  - "scripts/install_homebrew.sh"
+  - "scripts/setup_macos.sh"
+  - "scripts/setup_ssh_keys.sh"
+
+on_change:
+  - "brew bundle"
+  - "echo 'Config changed'"
+
+plugins:
+  brew:
+    brewfile: "Brewfile"
+    auto_update: true
+    cleanup_after: true
+

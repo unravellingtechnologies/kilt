@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -20,58 +22,36 @@ func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
 func TestOnePasswordPlugin_Name(t *testing.T) {
 	p := &OnePasswordPlugin{}
-	if p.Name() != "onepassword" {
-		t.Errorf("Name() = %v, want 'onepassword'", p.Name())
-	}
+	assert.Equal(t, "onepassword", p.Name())
 }
 
 func TestOnePasswordPlugin_Version(t *testing.T) {
 	p := &OnePasswordPlugin{}
-	if p.Version() != "1.0.0" {
-		t.Errorf("Version() = %v, want '1.0.0'", p.Version())
-	}
+	assert.Equal(t, "1.0.0", p.Version())
 }
 
 func TestOnePasswordPlugin_Phase(t *testing.T) {
 	p := &OnePasswordPlugin{}
-	if p.Phase() != plugin.PhasePreSync {
-		t.Errorf("Phase() = %v, want PhasePreSync", p.Phase())
-	}
+	assert.Equal(t, plugin.PhasePreSync, p.Phase())
 }
 
 func TestOnePasswordPlugin_Dependencies(t *testing.T) {
 	p := &OnePasswordPlugin{}
 	deps := p.Dependencies()
-	if len(deps) != 0 {
-		t.Errorf("Dependencies() = %v, want empty slice", deps)
-	}
+	assert.Empty(t, deps)
 }
 
-func TestOnePasswordPlugin_Initialize(t *testing.T) {
-	tmpDir := t.TempDir()
-	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
+func setupOnePasswordPlugin(t *testing.T, workDir string, cfg *core.Config) (*OnePasswordPlugin, *plugin.PluginContext) {
+	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
+	require.NoError(t, err)
 
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
+	backupDir := filepath.Join(filepath.Dir(workDir), ".kilt", "backup")
 	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
+	require.NoError(t, err)
 
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
-
-	cfg := &core.Config{
-		Plugins: map[string]interface{}{},
-	}
 
 	ctx := &plugin.PluginContext{
 		Config:   cfg,
@@ -85,53 +65,33 @@ func TestOnePasswordPlugin_Initialize(t *testing.T) {
 	}
 
 	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
+	require.NoError(t, p.Initialize(ctx))
+
+	return p, ctx
+}
+
+func TestOnePasswordPlugin_Initialize(t *testing.T) {
+	tmpDir := t.TempDir()
+	workDir := filepath.Join(tmpDir, "repo")
+	require.NoError(t, os.MkdirAll(workDir, 0755))
+
+	cfg := &core.Config{
+		Plugins: map[string]interface{}{},
 	}
 
-	if p.ctx == nil {
-		t.Error("Plugin context should be set")
-	}
+	p, _ := setupOnePasswordPlugin(t, workDir, cfg)
 
-	// Check defaults
-	if p.account != "" {
-		t.Errorf("account = %v, want empty string", p.account)
-	}
-
-	if p.vault != "" {
-		t.Errorf("vault = %v, want empty string", p.vault)
-	}
-
-	if p.cacheEnabled != true {
-		t.Errorf("cacheEnabled = %v, want true", p.cacheEnabled)
-	}
-
-	if p.cacheTTL != 5*time.Minute {
-		t.Errorf("cacheTTL = %v, want 5m", p.cacheTTL)
-	}
+	assert.NotNil(t, p.ctx)
+	assert.Empty(t, p.account)
+	assert.Empty(t, p.vault)
+	assert.True(t, p.cacheEnabled)
+	assert.Equal(t, 5*time.Minute, p.cacheTTL)
 }
 
 func TestOnePasswordPlugin_Initialize_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -144,57 +104,26 @@ func TestOnePasswordPlugin_Initialize_WithConfig(t *testing.T) {
 		},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
+	p, _ := setupOnePasswordPlugin(t, workDir, cfg)
 
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
-
-	if p.account != "myaccount.1password.com" {
-		t.Errorf("account = %v, want 'myaccount.1password.com'", p.account)
-	}
-
-	if p.vault != "Personal" {
-		t.Errorf("vault = %v, want 'Personal'", p.vault)
-	}
-
-	if p.cacheEnabled != false {
-		t.Errorf("cacheEnabled = %v, want false", p.cacheEnabled)
-	}
-
-	if p.cacheTTL != 10*time.Minute {
-		t.Errorf("cacheTTL = %v, want 10m", p.cacheTTL)
-	}
+	assert.Equal(t, "myaccount.1password.com", p.account)
+	assert.Equal(t, "Personal", p.vault)
+	assert.False(t, p.cacheEnabled)
+	assert.Equal(t, 10*time.Minute, p.cacheTTL)
 }
 
 func TestOnePasswordPlugin_Initialize_InvalidCacheTTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
+	require.NoError(t, err)
 
 	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
 	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
+	require.NoError(t, err)
 
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
@@ -219,158 +148,59 @@ func TestOnePasswordPlugin_Initialize_InvalidCacheTTL(t *testing.T) {
 	}
 
 	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err == nil {
-		t.Error("Initialize() should return error for invalid cache_ttl")
-	}
+	err = p.Initialize(ctx)
+	assert.Error(t, err, "Initialize() should return error for invalid cache_ttl")
 }
 
 func TestOnePasswordPlugin_Initialize_RegistersTemplateFunction(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	_, ctx := setupOnePasswordPlugin(t, workDir, cfg)
 
 	// Verify template function is registered by trying to use it
 	// Since op might not be installed, we expect an error, but the function should be registered
 	templateStr := "Secret: {{ op \"path/to/secret\" }}"
-	_, err = template.RenderString(templateStr)
+	_, err := ctx.Template.(*core.TemplateEngine).RenderString(templateStr)
 	// Error is expected if op is not installed/authenticated, but function should be registered
-	if err == nil {
-		// If no error, that's fine - op might be working
-	} else {
-		// Error should mention op function or 1Password
-		if err.Error() == "1Password function not registered. Install and configure the 1Password plugin" {
-			t.Error("Template function was not registered")
-		}
-		// Other errors (like op not installed) are expected and fine
+	if err != nil {
+		// Error should NOT mention "function not registered" - that would mean it wasn't registered
+		assert.NotContains(t, err.Error(), "1Password function not registered")
 	}
+	// If no error, that's fine - op might be working
 }
 
 func TestOnePasswordPlugin_Validate(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, _ := setupOnePasswordPlugin(t, workDir, cfg)
 
 	// Validate should pass (even if op is not installed)
-	if err := p.Validate(); err != nil {
-		t.Fatalf("Validate() error = %v, want nil", err)
-	}
+	err := p.Validate()
+	assert.NoError(t, err)
 }
 
 func TestOnePasswordPlugin_Execute(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupOnePasswordPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
 		PluginContext: ctx,
@@ -379,52 +209,20 @@ func TestOnePasswordPlugin_Execute(t *testing.T) {
 	}
 
 	// Execute should succeed (even if op is not installed/authenticated)
-	if err := p.Execute(execCtx); err != nil {
-		t.Fatalf("Execute() error = %v, want nil", err)
-	}
+	err := p.Execute(execCtx)
+	assert.NoError(t, err)
 }
 
 func TestOnePasswordPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, ctx := setupOnePasswordPlugin(t, workDir, cfg)
 
 	// Add some cache entries
 	p.cacheMu.Lock()
@@ -441,91 +239,39 @@ func TestOnePasswordPlugin_Rollback(t *testing.T) {
 	}
 
 	// Rollback should clear cache
-	if err := p.Rollback(rollbackCtx); err != nil {
-		t.Fatalf("Rollback() error = %v, want nil", err)
-	}
+	err := p.Rollback(rollbackCtx)
+	assert.NoError(t, err)
 
 	// Verify cache is cleared
 	p.cacheMu.RLock()
-	if len(p.cache) != 0 {
-		t.Errorf("Cache should be cleared after rollback, got %d entries", len(p.cache))
-	}
+	assert.Empty(t, p.cache)
 	p.cacheMu.RUnlock()
 }
 
 func TestOnePasswordPlugin_getSecret_NoOPInstalled(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, _ := setupOnePasswordPlugin(t, workDir, cfg)
 
 	// Set opPath to empty to simulate op not installed
 	p.opPath = ""
 
 	// getSecret should return error
-	_, err = p.getSecret("test/path")
-	if err == nil {
-		t.Error("getSecret() should return error when op is not installed")
-	}
+	_, err := p.getSecret("test/path")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not installed")
 }
 
 func TestOnePasswordPlugin_getSecret_Cache(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -536,21 +282,7 @@ func TestOnePasswordPlugin_getSecret_Cache(t *testing.T) {
 		},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, _ := setupOnePasswordPlugin(t, workDir, cfg)
 
 	// Manually add cache entry
 	p.cacheMu.Lock()
@@ -560,43 +292,19 @@ func TestOnePasswordPlugin_getSecret_Cache(t *testing.T) {
 	}
 	p.cacheMu.Unlock()
 
-	// getSecret should return cached value (even if op is not installed, cache should work)
-	// But we need to set opPath to avoid the "not installed" error
-	// Since we can't actually test with real op, we'll just verify cache logic
+	// Verify cache logic
 	p.cacheMu.RLock()
 	entry, found := p.cache["test/path"]
 	p.cacheMu.RUnlock()
 
-	if !found {
-		t.Error("Cache entry should be found")
-	}
-
-	if entry.value != "cached_secret" {
-		t.Errorf("Cache value = %v, want 'cached_secret'", entry.value)
-	}
+	assert.True(t, found, "Cache entry should be found")
+	assert.Equal(t, "cached_secret", entry.value)
 }
 
 func TestOnePasswordPlugin_getSecret_CacheExpired(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
-		t.Fatalf("Failed to create work dir: %v", err)
-	}
-
-	stateDir := filepath.Join(tmpDir, ".kilt", "state")
-	state, err := core.NewStateManager(stateDir)
-	if err != nil {
-		t.Fatalf("Failed to create state manager: %v", err)
-	}
-
-	backupDir := filepath.Join(tmpDir, ".kilt", "backup")
-	backup, err := core.NewBackupManager(backupDir)
-	if err != nil {
-		t.Fatalf("Failed to create backup manager: %v", err)
-	}
-
-	template := core.NewTemplateEngine()
-	homeDir, _ := os.UserHomeDir()
+	require.NoError(t, os.MkdirAll(workDir, 0755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -606,21 +314,7 @@ func TestOnePasswordPlugin_getSecret_CacheExpired(t *testing.T) {
 		},
 	}
 
-	ctx := &plugin.PluginContext{
-		Config:   cfg,
-		State:    state,
-		Backup:   backup,
-		Template: template,
-		Logger:   &mockLogger{},
-		DryRun:   false,
-		WorkDir:  workDir,
-		HomeDir:  homeDir,
-	}
-
-	p := &OnePasswordPlugin{}
-	if err := p.Initialize(ctx); err != nil {
-		t.Fatalf("Initialize() error = %v, want nil", err)
-	}
+	p, _ := setupOnePasswordPlugin(t, workDir, cfg)
 
 	// Add expired cache entry
 	p.cacheMu.Lock()
@@ -637,8 +331,6 @@ func TestOnePasswordPlugin_getSecret_CacheExpired(t *testing.T) {
 
 	// The entry should still be there until we try to use it
 	// But since we can't actually call getSecret without op, we'll just verify the entry exists
-	if !found {
-		t.Error("Cache entry should exist (even if expired)")
-	}
+	assert.True(t, found, "Cache entry should exist (even if expired)")
 }
 

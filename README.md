@@ -445,6 +445,22 @@ All commands support the following global flags:
 
 ## Development
 
+### Code Style
+
+This project follows strict Go code style guidelines. See [docs/code-style.md](docs/code-style.md) for details.
+
+**Quick Start:**
+```bash
+make fmt        # Format code
+make fmt-check  # Check formatting without modifying
+make lint       # Run linters
+make check      # Run all checks (fmt-check, vet, lint, test)
+```
+
+### Git Hooks
+
+Pre-commit hooks are available to automatically check code quality. See [.githooks/README.md](.githooks/README.md) for installation instructions.
+
 ### Project Structure
 
 ```

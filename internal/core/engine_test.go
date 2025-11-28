@@ -9,27 +9,33 @@ import (
 
 // MockPlugin is a test implementation of the Plugin interface
 type MockPlugin struct {
-	name         string
-	version      string
-	description  string
-	dependencies []string
-	phase        plugin.ExecutionPhase
-	initError    error
+	name          string
+	version       string
+	description   string
+	dependencies  []string
+	phase         plugin.ExecutionPhase
+	initError     error
 	validateError error
-	executeError error
-	initialized  bool
-	executed     bool
+	executeError  error
+	initialized   bool
+	executed      bool
 }
 
-func (m *MockPlugin) Name() string                                   { return m.name }
-func (m *MockPlugin) Version() string                                { return m.version }
-func (m *MockPlugin) Description() string                            { return m.description }
-func (m *MockPlugin) Dependencies() []string                         { return m.dependencies }
-func (m *MockPlugin) Phase() plugin.ExecutionPhase                   { return m.phase }
-func (m *MockPlugin) Initialize(ctx *plugin.PluginContext) error     { m.initialized = true; return m.initError }
-func (m *MockPlugin) Validate() error                                { return m.validateError }
-func (m *MockPlugin) Execute(ctx *plugin.ExecutionContext) error     { m.executed = true; return m.executeError }
-func (m *MockPlugin) Rollback(ctx *plugin.ExecutionContext) error    { return nil }
+func (m *MockPlugin) Name() string                 { return m.name }
+func (m *MockPlugin) Version() string              { return m.version }
+func (m *MockPlugin) Description() string          { return m.description }
+func (m *MockPlugin) Dependencies() []string       { return m.dependencies }
+func (m *MockPlugin) Phase() plugin.ExecutionPhase { return m.phase }
+func (m *MockPlugin) Initialize(ctx *plugin.PluginContext) error {
+	m.initialized = true
+	return m.initError
+}
+func (m *MockPlugin) Validate() error { return m.validateError }
+func (m *MockPlugin) Execute(ctx *plugin.ExecutionContext) error {
+	m.executed = true
+	return m.executeError
+}
+func (m *MockPlugin) Rollback(ctx *plugin.ExecutionContext) error { return nil }
 
 func TestNewEngine(t *testing.T) {
 	// Create a minimal config
@@ -259,12 +265,12 @@ func TestEngine_GetExecutionPlan(t *testing.T) {
 	registry := plugin.NewRegistry()
 
 	plugin1 := &MockPlugin{
-		name:        "plugin1",
-		phase:       plugin.PhaseCore,
+		name:  "plugin1",
+		phase: plugin.PhaseCore,
 	}
 	plugin2 := &MockPlugin{
-		name:        "plugin2",
-		phase:       plugin.PhaseIntegration,
+		name:  "plugin2",
+		phase: plugin.PhaseIntegration,
 	}
 	registry.Register(plugin1)
 	registry.Register(plugin2)
@@ -361,4 +367,3 @@ func TestEngine_SetVerbose(t *testing.T) {
 		t.Error("Engine should be verbose after SetVerbose(true)")
 	}
 }
-

@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -20,31 +22,23 @@ func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
 func TestAlternatesPlugin_Name(t *testing.T) {
 	p := &AlternatesPlugin{}
-	if p.Name() != "alternates" {
-		t.Errorf("Name() = %v, want 'alternates'", p.Name())
-	}
+	assert.Equal(t, "alternates", p.Name())
 }
 
 func TestAlternatesPlugin_Version(t *testing.T) {
 	p := &AlternatesPlugin{}
-	if p.Version() != "1.0.0" {
-		t.Errorf("Version() = %v, want '1.0.0'", p.Version())
-	}
+	assert.Equal(t, "1.0.0", p.Version())
 }
 
 func TestAlternatesPlugin_Phase(t *testing.T) {
 	p := &AlternatesPlugin{}
-	if p.Phase() != plugin.PhasePreSync {
-		t.Errorf("Phase() = %v, want PhasePreSync", p.Phase())
-	}
+	assert.Equal(t, plugin.PhasePreSync, p.Phase())
 }
 
 func TestAlternatesPlugin_Dependencies(t *testing.T) {
 	p := &AlternatesPlugin{}
 	deps := p.Dependencies()
-	if len(deps) != 0 {
-		t.Errorf("Dependencies() = %v, want empty slice", deps)
-	}
+	assert.Empty(t, deps)
 }
 
 func TestAlternatesPlugin_Initialize(t *testing.T) {

@@ -377,4 +377,3 @@ func TestStatePersistence(t *testing.T) {
 		t.Errorf("Expected exit code 0, got %d", record.ExitCode)
 	}
 }
-

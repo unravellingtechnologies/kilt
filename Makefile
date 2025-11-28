@@ -31,6 +31,11 @@ build-all: ## Build binaries for all supported platforms
 test: ## Run tests
 	go test -v -race -coverprofile=coverage.out ./...
 
+test-integration: ## Run integration tests
+	go test -v -race ./test/integration/...
+
+test-all: test test-integration ## Run all tests (unit + integration)
+
 test-coverage: test ## Run tests with coverage report
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
@@ -43,8 +48,14 @@ lint-install: ## Install golangci-lint
 	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && \
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.55.2)
 
-fmt: ## Format code
+fmt: ## Format code with gofmt and goimports
 	go fmt ./...
+	@if command -v goimports > /dev/null 2>&1; then \
+		echo "Running goimports..."; \
+		goimports -w -local github.com/unravelling/kilt .; \
+	else \
+		echo "Warning: goimports not found. Install with: go install golang.org/x/tools/cmd/goimports@latest"; \
+	fi
 	@echo "Code formatted"
 
 vet: ## Run go vet
@@ -77,7 +88,23 @@ deps-update: ## Update dependencies
 	go get -u ./...
 	go mod tidy
 
-check: fmt vet lint test ## Run all checks (fmt, vet, lint, test)
+fmt-check: ## Check if code is formatted (does not modify files)
+	@echo "Checking code formatting..."
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo "Error: Code is not formatted. Run 'make fmt' to fix."; \
+		gofmt -d .; \
+		exit 1; \
+	fi
+	@if command -v goimports > /dev/null 2>&1; then \
+		if [ -n "$$(goimports -l -local github.com/unravelling/kilt .)" ]; then \
+			echo "Error: Imports are not formatted. Run 'make fmt' to fix."; \
+			goimports -d -local github.com/unravelling/kilt .; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "Code formatting OK"
+
+check: fmt-check vet lint test ## Run all checks (fmt-check, vet, lint, test)
 
 .DEFAULT_GOAL := help
 

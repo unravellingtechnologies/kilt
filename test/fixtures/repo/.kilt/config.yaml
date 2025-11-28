@@ -1,0 +1,38 @@
+# Sample Kilt configuration for integration tests
+dotfiles_repo: "https://github.com/test/dotfiles"
+dotfiles_path: "~/.dotfiles"
+
+# Sample dotfiles
+dotfiles:
+  - zsh
+  - git
+  - source: ssh/config
+    target: ~/.ssh/config
+    mode: "0600"
+    template: false
+
+# Extra repositories
+extra_repos:
+  - url: "https://github.com/test/extra-repo"
+    path: "~/.extra-repo"
+    branch: "main"
+
+# Directories to create
+directories:
+  - "~/dev/personal"
+  - "~/dev/work"
+
+# Run-once scripts
+run_once:
+  - "scripts/install.sh"
+
+# On-change commands
+on_change:
+  - "echo 'Files changed'"
+
+# Plugin configuration
+plugins:
+  git:
+    auto_pull: true
+  dotfiles:
+    create_directories: true

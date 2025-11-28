@@ -1,29 +1,153 @@
 run:
   timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+    - bin
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.pb\\.gw\\.go$"
 
 linters:
+  disable-all: true
   enable:
+    # Code formatters
     - gofmt
+    - goimports
+    
+    # Official linters
     - govet
-    - errcheck
     - staticcheck
+    
+    # Error checking
+    - errcheck
+    - errorlint
+    
+    # Code simplification
     - gosimple
+    
+    # Code correctness
     - ineffassign
-    - typecheck
+    - unconvert
     - unused
-    - misspell
+    - typecheck
+    - unparam
+    - goconst
+    
+    # Code complexity
     - gocyclo
+    - gocognit
+    - nestif
+    
+    # Style issues
+    - misspell
+    - revive
+    - gofumpt
+    - gci  # Import ordering
+    
+    # Security
+    - gosec
+    
+    # Performance
+    - prealloc
 
 linters-settings:
+  gofmt:
+    simplify: true
+  
+  goimports:
+    local-prefixes: github.com/unravelling/kilt
+  
   gocyclo:
     min-complexity: 15
+  
+  gocognit:
+    min-complexity: 15
+  
+  nestif:
+    min-complexity: 3
+  
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  
   misspell:
     locale: US
+  
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+      - name: var-declaration
+        severity: warning
+        disabled: false
+      - name: package-comments
+        severity: warning
+        disabled: false
+      - name: range
+        severity: warning
+        disabled: false
+      - name: increment-decrement
+        severity: warning
+        disabled: false
+      - name: error-naming
+        severity: warning
+        disabled: false
+      - name: error-return
+        severity: warning
+        disabled: false
+      - name: error-strings
+        severity: warning
+        disabled: false
+      - name: receiver-naming
+        severity: warning
+        disabled: false
+      - name: unexported-return
+        severity: warning
+        disabled: false
+  
+  gci:
+    local-prefixes: github.com/unravelling/kilt
+    sections:
+      - standard
+      - default
+      - prefix(github.com/unravelling/kilt)
+  
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G104  # Allow unhandled errors in defer
+      - G307  # Defer without recovery allowed
 
 issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  
+  # Exclude some common false positives
+  exclude-rules:
+    # Allow errcheck in test files for some cases
+    - path: _test\.go
+      linters:
+        - errcheck
+      text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+    
+    # Allow unused in test files
+    - path: _test\.go
+      linters:
+        - unused
+    
+    # Allow gocyclo in test files (tests can be complex)
+    - path: _test\.go
+      linters:
+        - gocyclo
 
-
-
+  # Exclude specific issues that are acceptable
+  exclude:
+    # Generated files
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"

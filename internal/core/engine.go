@@ -28,12 +28,12 @@ type Engine struct {
 
 // ExecutionResult contains the results of an engine execution
 type ExecutionResult struct {
-	Success      bool
-	PluginsRun   int
-	Changes      []plugin.Change
-	Errors       []error
-	Duration     time.Duration
-	RolledBack   bool
+	Success    bool
+	PluginsRun int
+	Changes    []plugin.Change
+	Errors     []error
+	Duration   time.Duration
+	RolledBack bool
 }
 
 // NewEngine creates a new engine instance
@@ -92,15 +92,15 @@ func NewEngine(cfg *Config, registry *plugin.PluginRegistry) (*Engine, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Engine{
-		config:       cfg,
-		state:        state,
-		backup:       backup,
-		template:     template,
-		registry:     registry,
-		workDir:      workDir,
-		homeDir:      homeDir,
+		config:        cfg,
+		state:         state,
+		backup:        backup,
+		template:      template,
+		registry:      registry,
+		workDir:       workDir,
+		homeDir:       homeDir,
 		executionCtx:  ctx,
-		cancelFunc:   cancel,
+		cancelFunc:    cancel,
 		rollbackStack: make([]plugin.Plugin, 0),
 	}, nil
 }
@@ -275,7 +275,7 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 		if err := p.Execute(executionCtx); err != nil {
 			err := fmt.Errorf("plugin %s execution failed: %w", p.Name(), err)
 			result.Errors = append(result.Errors, err)
-			
+
 			// Add to rollback stack
 			e.rollbackStack = append(e.rollbackStack, p)
 
@@ -378,4 +378,3 @@ func (e *Engine) Cleanup() error {
 
 	return nil
 }
-
