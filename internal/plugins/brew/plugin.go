@@ -1,3 +1,5 @@
+// Package brew provides the Homebrew plugin for Kilt.
+// It handles Homebrew integration for package management, including bundle installation and updates.
 package brew
 
 import (

@@ -1,4 +1,5 @@
 # Kilt
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/unravellingtechnologies/kilt?utm_source=oss&utm_medium=github&utm_campaign=unravellingtechnologies%2Fkilt&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 **Bootstrap manager for Mac. Think dot files management, but with a beard**
 

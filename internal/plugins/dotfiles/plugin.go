@@ -1,3 +1,5 @@
+// Package dotfiles provides the dotfiles plugin for Kilt.
+// It handles symlink-based synchronization of dotfiles from the dotfiles repository to the home directory.
 package dotfiles
 
 import (

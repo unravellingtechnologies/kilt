@@ -91,3 +91,4 @@ func FormatError(err error, colorized bool) string {
 	return colorRed + colorBold + "Error: " + colorReset + colorRed + msg + colorReset
 }
 
+

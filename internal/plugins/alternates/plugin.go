@@ -1,3 +1,5 @@
+// Package alternates provides the alternates plugin for Kilt.
+// It handles automatic file selection based on OS, hostname, and architecture using alternate file patterns.
 package alternates
 
 import (

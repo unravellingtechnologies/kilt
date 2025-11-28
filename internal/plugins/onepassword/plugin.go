@@ -1,3 +1,5 @@
+// Package onepassword provides the 1Password plugin for Kilt.
+// It handles 1Password CLI integration for secret injection into templates, with caching support.
 package onepassword
 
 import (

@@ -17,3 +17,4 @@ run_once:
 on_change:
   - ""  # Invalid: empty command
 
+

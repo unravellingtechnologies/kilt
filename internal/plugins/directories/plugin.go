@@ -1,3 +1,5 @@
+// Package directories provides the directories plugin for Kilt.
+// It ensures specified directories exist with proper permissions.
 package directories
 
 import (

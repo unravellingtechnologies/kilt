@@ -1,3 +1,5 @@
+// Package runonce provides the runonce plugin for Kilt.
+// It executes bootstrap scripts exactly once per machine, tracking execution state for idempotency.
 package runonce
 
 import (

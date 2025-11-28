@@ -1,3 +1,5 @@
+// Package onchange provides the onchange plugin for Kilt.
+// It executes commands when configuration or files change, supporting different detection modes.
 package onchange
 
 import (

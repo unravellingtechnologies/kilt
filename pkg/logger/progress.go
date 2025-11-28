@@ -183,3 +183,4 @@ func (s *Spinner) UpdateMessage(message string) {
 	s.message = message
 }
 
+

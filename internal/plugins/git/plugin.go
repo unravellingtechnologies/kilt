@@ -1,3 +1,5 @@
+// Package git provides the Git plugin for Kilt.
+// It handles bidirectional Git synchronization for the dotfiles repository and manages extra repositories.
 package git
 
 import (
