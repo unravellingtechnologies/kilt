@@ -29,7 +29,9 @@ type GitPlugin struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&GitPlugin{})
+	if err := plugin.RegisterPlugin(&GitPlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register git plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name

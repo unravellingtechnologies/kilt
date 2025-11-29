@@ -504,9 +504,10 @@ func (sm *StateManager) ClearState() error {
 	defer sm.mu.Unlock()
 
 	sm.db = &StateDB{
-		RunOnce: make(map[string]RunOnceRecord),
-		Files:   make(map[string]FileRecord),
-		Plugins: make(map[string]PluginRecord),
+		RunOnce:  make(map[string]RunOnceRecord),
+		Failures: make(map[string]RunOnceRecord),
+		Files:    make(map[string]FileRecord),
+		Plugins:  make(map[string]PluginRecord),
 	}
 
 	return sm.save()

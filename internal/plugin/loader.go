@@ -50,10 +50,27 @@ func GetPluginConfig(config Config, pluginName string) map[string]interface{} {
 	return config.GetPluginConfig(pluginName)
 }
 
-// RegisterPlugin is a convenience function that registers a plugin with the global registry
-// This should be called from plugin init() functions
-// Note: For now, this is a simple wrapper. In a full implementation, you might want
-// a global registry or use dependency injection
+// defaultRegistry is the global plugin registry used for automatic plugin registration.
+//
+// ARCHITECTURAL DECISION: We intentionally use a global registry here rather than
+// dependency injection for the following reasons:
+//
+//  1. Plugin Auto-Registration: Plugins register themselves via init() functions when
+//     their packages are imported. This is idiomatic Go (similar to database/sql drivers)
+//     and requires zero configuration from users.
+//
+//  2. Compile-Time Static: Kilt's plugin system is compile-time static - no dynamic
+//     plugin loading. The set of plugins is fixed at build time, making a global
+//     registry safe and predictable.
+//
+//  3. Simplicity: Dependency injection would require explicit wiring in main() for
+//     every plugin, adding boilerplate with no real benefit for our use case.
+//
+//  4. Testing: Tests can create fresh registries via NewRegistry() when isolation
+//     is needed. Integration tests use the global registry to test real behavior.
+//
+// Trade-off: Global state makes unit testing slightly harder, but the pattern is
+// well-established in Go and provides excellent ergonomics for plugin authors.
 var defaultRegistry *PluginRegistry
 
 func init() {

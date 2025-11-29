@@ -19,7 +19,9 @@ type DirectoriesPlugin struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&DirectoriesPlugin{})
+	if err := plugin.RegisterPlugin(&DirectoriesPlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register directories plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name

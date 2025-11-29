@@ -36,3 +36,17 @@ func GetStateDir() (string, error) {
 	}
 	return filepath.Join(kiltDir, "state"), nil
 }
+
+// PathsMatch checks if two paths refer to the same file by comparing their absolute paths.
+// Returns true if both paths resolve to the same absolute path, false otherwise.
+// If either path cannot be converted to absolute, falls back to string comparison.
+func PathsMatch(path1, path2 string) bool {
+	abs1, err1 := filepath.Abs(path1)
+	abs2, err2 := filepath.Abs(path2)
+
+	if err1 != nil || err2 != nil {
+		return path1 == path2
+	}
+
+	return abs1 == abs2
+}

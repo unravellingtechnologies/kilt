@@ -25,7 +25,9 @@ type OnChangePlugin struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&OnChangePlugin{})
+	if err := plugin.RegisterPlugin(&OnChangePlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register onchange plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name
@@ -305,11 +307,11 @@ func (p *OnChangePlugin) checkConditionalChanges(ctx *plugin.ExecutionContext) (
 		for _, file := range change.Files {
 			for _, watchFile := range p.watchFiles {
 				// Check if file matches watched file (handle relative/absolute paths)
-				if p.pathsMatch(file, watchFile) {
+				if core.PathsMatch(file, watchFile) {
 					// Check if already in changedFiles
 					found := false
 					for _, cf := range changedFiles {
-						if p.pathsMatch(cf, watchFile) {
+						if core.PathsMatch(cf, watchFile) {
 							found = true
 							break
 						}
@@ -325,18 +327,6 @@ func (p *OnChangePlugin) checkConditionalChanges(ctx *plugin.ExecutionContext) (
 	return len(changedFiles) > 0, changedFiles, nil
 }
 
-// pathsMatch checks if two paths refer to the same file
-func (p *OnChangePlugin) pathsMatch(path1, path2 string) bool {
-	abs1, err1 := filepath.Abs(path1)
-	abs2, err2 := filepath.Abs(path2)
-
-	if err1 != nil || err2 != nil {
-		// If we can't get absolute paths, do string comparison
-		return path1 == path2
-	}
-
-	return abs1 == abs2
-}
 
 // executeCommand executes a single command
 func (p *OnChangePlugin) executeCommand(ctx *plugin.ExecutionContext, cmdStr string, index int, changedFiles []string) error {

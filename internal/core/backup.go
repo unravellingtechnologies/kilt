@@ -51,8 +51,10 @@ func NewBackupManager(backupDir string) (*BackupManager, error) {
 }
 
 // CreateBackup creates a new backup with the given files
-// Returns the backup ID (timestamp format: YYYYMMDD-HHMMSS)
-func (bm *BackupManager) CreateBackup(files []string, description string) (string, *BackupMetadata, error) {
+// Returns the backup ID (timestamp format: YYYYMMDD-HHMMSS) and metadata.
+// The metadata is returned as interface{} to satisfy the plugin.BackupManager interface.
+// Callers who need the full *BackupMetadata can use type assertion.
+func (bm *BackupManager) CreateBackup(files []string, description string) (string, interface{}, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	return bm.createBackupLocked(files, description)
@@ -116,7 +118,7 @@ func (bm *BackupManager) createBackupLocked(files []string, description string) 
 
 // CreateIncrementalBackup creates a backup only for files that have changed
 // Uses StateManager to check if files have changed
-func (bm *BackupManager) CreateIncrementalBackup(files []string, stateManager *StateManager, description string) (string, *BackupMetadata, error) {
+func (bm *BackupManager) CreateIncrementalBackup(files []string, stateManager *StateManager, description string) (string, interface{}, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 

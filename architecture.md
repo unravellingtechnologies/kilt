@@ -1189,10 +1189,12 @@ test/fixtures/
 ### Mocking External Commands
 
 ```go
-// pkg/utils/cmd.go
+// Example: mocking exec.Command in plugin tests
+// Use package-level var that can be swapped in tests
+
 var execCommand = exec.Command  // var for testing
 
-func RunGitCommand(args ...string) error {
+func runGitCommand(args ...string) error {
     cmd := execCommand("git", args...)
     return cmd.Run()
 }
@@ -1205,7 +1207,7 @@ func TestGitPull(t *testing.T) {
         return exec.Command("echo", "mock output")
     }
     
-    err := RunGitCommand("pull")
+    err := runGitCommand("pull")
     assert.NoError(t, err)
 }
 ```

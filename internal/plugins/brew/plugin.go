@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
@@ -267,7 +268,7 @@ func (p *BrewPlugin) shouldRunBundle(ctx *plugin.ExecutionContext) (bool, error)
 	// Also check execution context changes
 	for _, change := range ctx.Changes {
 		for _, file := range change.Files {
-			if p.pathsMatch(file, brewfilePath) {
+			if core.PathsMatch(file, brewfilePath) {
 				return true, nil
 			}
 		}
@@ -276,17 +277,6 @@ func (p *BrewPlugin) shouldRunBundle(ctx *plugin.ExecutionContext) (bool, error)
 	return hasChanged, nil
 }
 
-// pathsMatch checks if two paths refer to the same file
-func (p *BrewPlugin) pathsMatch(path1, path2 string) bool {
-	abs1, err1 := filepath.Abs(path1)
-	abs2, err2 := filepath.Abs(path2)
-
-	if err1 != nil || err2 != nil {
-		return path1 == path2
-	}
-
-	return abs1 == abs2
-}
 
 // runBundle runs brew bundle for a specific file
 func (p *BrewPlugin) runBundle(ctx *plugin.ExecutionContext, bundleFile string) error {

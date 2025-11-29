@@ -39,7 +39,9 @@ var commonDotfiles = map[string]bool{
 }
 
 func init() {
-	plugin.RegisterPlugin(&DotfilesPlugin{})
+	if err := plugin.RegisterPlugin(&DotfilesPlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register dotfiles plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name
@@ -209,12 +211,8 @@ func (p *DotfilesPlugin) processTemplateFile(sourcePath, targetPath string, entr
 		return fmt.Errorf("failed to read template file: %w", err)
 	}
 
-	// Render template (type assert to concrete type)
-	templateEngine, ok := p.ctx.Template.(*core.TemplateEngine)
-	if !ok {
-		return fmt.Errorf("template engine type assertion failed")
-	}
-	rendered, err := templateEngine.RenderString(string(content))
+	// Render template using the interface
+	rendered, err := p.ctx.Template.RenderString(string(content))
 	if err != nil {
 		return fmt.Errorf("failed to render template: %w", err)
 	}
@@ -230,15 +228,10 @@ func (p *DotfilesPlugin) processTemplateFile(sourcePath, targetPath string, entr
 	// Backup existing file if it exists
 	if _, err := os.Stat(targetPath); err == nil {
 		if p.ctx.Backup != nil {
-			// Type assert to concrete type
-			backupManager, ok := p.ctx.Backup.(*core.BackupManager)
-			if ok {
-				// CreateBackup takes a slice of files
-				_, _, err := backupManager.CreateBackup([]string{targetPath}, "kilt: backup before template update")
-				if err != nil {
-					if p.ctx.Logger != nil {
-						p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
-					}
+			_, _, err := p.ctx.Backup.CreateBackup([]string{targetPath}, "kilt: backup before template update")
+			if err != nil {
+				if p.ctx.Logger != nil {
+					p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
 				}
 			}
 		}
@@ -261,15 +254,11 @@ func (p *DotfilesPlugin) processTemplateFile(sourcePath, targetPath string, entr
 		return fmt.Errorf("failed to write template file: %w", err)
 	}
 
-	// Update state
+	// Update state using the interface
 	if p.ctx.State != nil {
-		// Type assert to concrete type
-		stateManager, ok := p.ctx.State.(*core.StateManager)
-		if ok {
-			if err := stateManager.UpdateFileRecord(sourcePath, targetPath); err != nil {
-				if p.ctx.Logger != nil {
-					p.ctx.Logger.Warn("Failed to record file checksum", "file", targetPath, "error", err)
-				}
+		if err := p.ctx.State.UpdateFileRecord(sourcePath, targetPath); err != nil {
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("Failed to record file checksum", "file", targetPath, "error", err)
 			}
 		}
 	}
@@ -308,14 +297,10 @@ func (p *DotfilesPlugin) createSymlink(sourcePath, targetPath string, ctx *plugi
 		if _, err := os.Readlink(targetPath); err != nil {
 			// Not a symlink, need to backup
 			if p.ctx.Backup != nil {
-				// Type assert to concrete type
-				backupManager, ok := p.ctx.Backup.(*core.BackupManager)
-				if ok {
-					_, _, err := backupManager.CreateBackup([]string{targetPath}, "kilt: backup before symlink creation")
-					if err != nil {
-						if p.ctx.Logger != nil {
-							p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
-						}
+				_, _, err := p.ctx.Backup.CreateBackup([]string{targetPath}, "kilt: backup before symlink creation")
+				if err != nil {
+					if p.ctx.Logger != nil {
+						p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
 					}
 				}
 			}

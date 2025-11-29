@@ -55,16 +55,36 @@ type StateManager interface {
 	GetStateDir() string
 }
 
+// BackupMetadata contains information about a backup (interface-compatible subset)
+type BackupMetadata interface {
+	GetBackupID() string
+	GetTimestamp() time.Time
+	GetFileCount() int
+}
+
 // BackupManager is an interface for backup operations
 // This will be implemented by internal/core/backup package
 type BackupManager interface {
-	// Backup methods will be defined when backup package is implemented
+	// CreateBackup creates a backup of the specified files with a description.
+	// Returns the backup ID, metadata (as interface{}), and any error.
+	// Plugins should use type assertion if they need the full metadata struct.
+	CreateBackup(files []string, description string) (string, interface{}, error)
+
+	// GetBackupDir returns the backup directory path
+	GetBackupDir() string
 }
 
 // TemplateEngine is an interface for template rendering
 // This will be implemented by internal/core/template package
 type TemplateEngine interface {
-	// Template methods will be defined when template package is implemented
+	// RenderString renders a template string with built-in and custom data
+	RenderString(templateStr string) (string, error)
+
+	// Render renders a template file
+	Render(templatePath string) (string, error)
+
+	// RegisterOPFunction registers the 1Password secret lookup function
+	RegisterOPFunction(fn func(string) (string, error))
 }
 
 // PluginContext provides shared state to plugins during initialization

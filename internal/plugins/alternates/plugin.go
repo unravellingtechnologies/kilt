@@ -21,7 +21,9 @@ type AlternatesPlugin struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&AlternatesPlugin{})
+	if err := plugin.RegisterPlugin(&AlternatesPlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register alternates plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name

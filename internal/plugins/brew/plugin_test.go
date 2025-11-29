@@ -234,21 +234,19 @@ func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
 	assert.Equal(t, 2, bundleCount)
 }
 
-func TestBrewPlugin_PathsMatch(t *testing.T) {
-	p := &BrewPlugin{}
-
+func TestPathsMatch(t *testing.T) {
 	// Test identical paths
-	assert.True(t, p.pathsMatch("/path/to/file", "/path/to/file"))
+	assert.True(t, core.PathsMatch("/path/to/file", "/path/to/file"))
 
 	// Test relative vs absolute (same file)
 	tmpDir := t.TempDir()
 	absPath := filepath.Join(tmpDir, "file")
 	relPath := filepath.Join(tmpDir, "file")
 
-	assert.True(t, p.pathsMatch(absPath, relPath))
+	assert.True(t, core.PathsMatch(absPath, relPath))
 
 	// Test different paths
-	assert.False(t, p.pathsMatch("/path/to/file1", "/path/to/file2"))
+	assert.False(t, core.PathsMatch("/path/to/file1", "/path/to/file2"))
 }
 
 func TestBrewPlugin_Rollback(t *testing.T) {

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
@@ -36,7 +35,9 @@ type cacheEntry struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&OnePasswordPlugin{})
+	if err := plugin.RegisterPlugin(&OnePasswordPlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register onepassword plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name
@@ -124,14 +125,9 @@ func (p *OnePasswordPlugin) Initialize(ctx *plugin.PluginContext) error {
 	}
 
 	// Register the op function with the template engine
-	// Cast TemplateEngine interface to concrete type to access RegisterOPFunction
-	if templateEngine, ok := ctx.Template.(*core.TemplateEngine); ok {
-		templateEngine.RegisterOPFunction(p.getSecret)
-		if p.ctx.Logger != nil {
-			p.ctx.Logger.Info("1Password template function registered")
-		}
-	} else {
-		return fmt.Errorf("failed to register 1Password function: invalid template engine type")
+	ctx.Template.RegisterOPFunction(p.getSecret)
+	if p.ctx.Logger != nil {
+		p.ctx.Logger.Info("1Password template function registered")
 	}
 
 	return nil

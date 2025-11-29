@@ -75,17 +75,23 @@ func TestCreateBackup(t *testing.T) {
 		t.Fatal("Metadata should not be nil")
 	}
 
-	if len(metadata.Files) != 2 {
-		t.Errorf("Expected 2 files in backup, got %d", len(metadata.Files))
+	// Type assert to *BackupMetadata
+	meta, ok := metadata.(*BackupMetadata)
+	if !ok {
+		t.Fatal("Metadata should be *BackupMetadata")
 	}
 
-	if metadata.TotalSize == 0 {
+	if len(meta.Files) != 2 {
+		t.Errorf("Expected 2 files in backup, got %d", len(meta.Files))
+	}
+
+	if meta.TotalSize == 0 {
 		t.Error("Total size should be greater than 0")
 	}
 
 	// Verify backup files exist
 	backupPath := filepath.Join(backupDir, backupID)
-	for _, file := range metadata.Files {
+	for _, file := range meta.Files {
 		if _, err := os.Stat(file.BackupPath); os.IsNotExist(err) {
 			t.Errorf("Backup file should exist: %s", file.BackupPath)
 		}
@@ -122,11 +128,12 @@ func TestCreateBackupWithNonExistentFile(t *testing.T) {
 	files := []string{testFile1, nonExistentFile}
 
 	// Should succeed but only backup the existing file
-	_, metadata, err := bm.CreateBackup(files, "Test backup")
+	_, metadataIface, err := bm.CreateBackup(files, "Test backup")
 	if err != nil {
 		t.Fatalf("Failed to create backup: %v", err)
 	}
 
+	metadata := metadataIface.(*BackupMetadata)
 	if len(metadata.Files) != 1 {
 		t.Errorf("Expected 1 file in backup, got %d", len(metadata.Files))
 	}
@@ -173,16 +180,17 @@ func TestCreateIncrementalBackup(t *testing.T) {
 
 	// Create incremental backup
 	files := []string{testFile1, testFile2}
-	_, metadata, err := bm.CreateIncrementalBackup(files, sm, "Incremental backup")
+	_, metadataIface, err := bm.CreateIncrementalBackup(files, sm, "Incremental backup")
 	if err != nil {
 		t.Fatalf("Failed to create incremental backup: %v", err)
 	}
 
 	// Should only backup file2 (file1 hasn't changed)
-	if metadata == nil {
+	if metadataIface == nil {
 		t.Fatal("Metadata should not be nil")
 	}
 
+	metadata := metadataIface.(*BackupMetadata)
 	if len(metadata.Files) != 1 {
 		t.Errorf("Expected 1 file in backup (only changed file), got %d", len(metadata.Files))
 	}
@@ -262,10 +270,11 @@ func TestLoadMetadata(t *testing.T) {
 
 	// Create backup
 	files := []string{testFile}
-	backupID, originalMetadata, err := bm.CreateBackup(files, "Test backup")
+	backupID, originalMetadataIface, err := bm.CreateBackup(files, "Test backup")
 	if err != nil {
 		t.Fatalf("Failed to create backup: %v", err)
 	}
+	originalMetadata := originalMetadataIface.(*BackupMetadata)
 
 	// Load metadata
 	loadedMetadata, err := bm.LoadMetadata(backupID)
@@ -401,10 +410,11 @@ func TestGetBackupSize(t *testing.T) {
 
 	// Create backup
 	files := []string{testFile}
-	backupID, metadata, err := bm.CreateBackup(files, "Test backup")
+	backupID, metadataIface, err := bm.CreateBackup(files, "Test backup")
 	if err != nil {
 		t.Fatalf("Failed to create backup: %v", err)
 	}
+	metadata := metadataIface.(*BackupMetadata)
 
 	// Get backup size
 	size, err := bm.GetBackupSize(backupID)

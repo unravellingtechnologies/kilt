@@ -26,7 +26,9 @@ type RunOncePlugin struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&RunOncePlugin{})
+	if err := plugin.RegisterPlugin(&RunOncePlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register runonce plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name

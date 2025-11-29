@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/unravelling/kilt/internal/plugin"
+	"github.com/unravelling/kilt/pkg/logger"
 )
 
 // Engine orchestrates plugin execution and coordinates all core components
@@ -21,6 +22,7 @@ type Engine struct {
 	backup        *BackupManager
 	template      *TemplateEngine
 	registry      *plugin.PluginRegistry
+	logger        *logger.Logger
 	dryRun        bool
 	verbose       bool
 	workDir       string
@@ -119,6 +121,11 @@ func (e *Engine) SetVerbose(verbose bool) {
 	e.verbose = verbose
 }
 
+// SetLogger sets the logger for the engine
+func (e *Engine) SetLogger(l *logger.Logger) {
+	e.logger = l
+}
+
 // Cancel cancels the current execution
 func (e *Engine) Cancel() {
 	if e.cancelFunc != nil {
@@ -128,8 +135,8 @@ func (e *Engine) Cancel() {
 
 // PreflightChecks performs pre-flight validation before execution
 func (e *Engine) PreflightChecks() error {
-	if e.verbose {
-		fmt.Println("Running pre-flight checks...")
+	if e.verbose && e.logger != nil {
+		e.logger.Info("Running pre-flight checks...")
 	}
 
 	// Check Git is available
@@ -154,13 +161,13 @@ func (e *Engine) PreflightChecks() error {
 	}
 
 	if len(orderedPlugins) == 0 {
-		if e.verbose {
-			fmt.Println("Warning: No plugins registered")
+		if e.verbose && e.logger != nil {
+			e.logger.Warn("No plugins registered")
 		}
 	}
 
-	if e.verbose {
-		fmt.Printf("Pre-flight checks passed (%d plugins ready)\n", len(orderedPlugins))
+	if e.verbose && e.logger != nil {
+		e.logger.Info("Pre-flight checks passed", "plugins_ready", len(orderedPlugins))
 	}
 
 	return nil
@@ -253,13 +260,13 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 		default:
 		}
 
-		if e.verbose {
-			fmt.Printf("Executing plugin: %s (%s)\n", p.Name(), p.Description())
+		if e.verbose && e.logger != nil {
+			e.logger.Info("Executing plugin", "plugin", p.Name(), "description", p.Description())
 		}
 
 		if e.dryRun {
-			if e.verbose {
-				fmt.Printf("  [DRY-RUN] Would execute %s\n", p.Name())
+			if e.verbose && e.logger != nil {
+				e.logger.Info("[DRY-RUN] Would execute plugin", "plugin", p.Name())
 			}
 			pluginsRun++
 			continue
@@ -269,8 +276,8 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 		if err := p.Validate(); err != nil {
 			err := fmt.Errorf("plugin %s validation failed: %w", p.Name(), err)
 			result.Errors = append(result.Errors, err)
-			if e.verbose {
-				fmt.Printf("  Error: %v\n", err)
+			if e.verbose && e.logger != nil {
+				e.logger.Error("Plugin validation failed", "plugin", p.Name(), "error", err)
 			}
 			continue
 		}
@@ -307,8 +314,8 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 	result.PluginsRun = pluginsRun
 	result.Duration = time.Since(startTime)
 
-	if e.verbose {
-		fmt.Printf("Execution completed: %d plugins run in %v\n", pluginsRun, result.Duration)
+	if e.verbose && e.logger != nil {
+		e.logger.Info("Execution completed", "plugins_run", pluginsRun, "duration", result.Duration)
 	}
 
 	return result, nil
@@ -326,8 +333,8 @@ func (e *Engine) initializePlugins(plugins []plugin.Plugin, ctx *plugin.PluginCo
 
 // rollback rolls back all executed plugins in reverse order
 func (e *Engine) rollback() error {
-	if e.verbose {
-		fmt.Println("Rolling back changes...")
+	if e.verbose && e.logger != nil {
+		e.logger.Info("Rolling back changes...")
 	}
 
 	// Create execution context for rollback
@@ -351,8 +358,8 @@ func (e *Engine) rollback() error {
 	// Rollback in reverse order
 	for i := len(e.rollbackStack) - 1; i >= 0; i-- {
 		p := e.rollbackStack[i]
-		if e.verbose {
-			fmt.Printf("Rolling back plugin: %s\n", p.Name())
+		if e.verbose && e.logger != nil {
+			e.logger.Info("Rolling back plugin", "plugin", p.Name())
 		}
 
 		if err := p.Rollback(executionCtx); err != nil {

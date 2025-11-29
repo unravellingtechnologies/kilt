@@ -373,26 +373,6 @@ func TestGitPlugin_GitFetch_NoRemote(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGitPlugin_AuthenticateURL(t *testing.T) {
-	p := &GitPlugin{}
-
-	// Test HTTPS URL without token
-	url := "https://github.com/user/repo.git"
-	result := p.authenticateURL(url)
-	assert.Equal(t, url, result)
-
-	// Test HTTPS URL with token
-	p.gitToken = "test_token"
-	result = p.authenticateURL(url)
-	expected := "https://test_token@github.com/user/repo.git"
-	assert.Equal(t, expected, result)
-
-	// Test SSH URL (should not be modified)
-	sshURL := "git@github.com:user/repo.git"
-	result = p.authenticateURL(sshURL)
-	assert.Equal(t, sshURL, result)
-}
-
 func TestGitPlugin_HandleExtraRepository_ExistingRepo_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")

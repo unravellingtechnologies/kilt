@@ -166,7 +166,7 @@ func TestOnePasswordPlugin_Initialize_RegistersTemplateFunction(t *testing.T) {
 	// Verify template function is registered by trying to use it
 	// Since op might not be installed, we expect an error, but the function should be registered
 	templateStr := "Secret: {{ op \"path/to/secret\" }}"
-	_, err := ctx.Template.(*core.TemplateEngine).RenderString(templateStr)
+	_, err := ctx.Template.RenderString(templateStr)
 	// Error is expected if op is not installed/authenticated, but function should be registered
 	if err != nil {
 		// Error should NOT mention "function not registered" - that would mean it wasn't registered
