@@ -88,8 +88,14 @@ func (p *DirectoriesPlugin) Execute(ctx *plugin.ExecutionContext) error {
 
 	// Process each directory
 	for _, dirPath := range cfg.Directories {
-		if err := p.processDirectory(ctx, dirPath); err != nil {
-			return fmt.Errorf("failed to process directory %s: %w", dirPath, err)
+		// Expand path to handle ~ and environment variables
+		expandedPath, err := core.ExpandPath(dirPath)
+		if err != nil {
+			return fmt.Errorf("failed to expand directory path %s: %w", dirPath, err)
+		}
+
+		if err := p.processDirectory(ctx, expandedPath); err != nil {
+			return fmt.Errorf("failed to process directory %s (expanded from %s): %w", expandedPath, dirPath, err)
 		}
 	}
 

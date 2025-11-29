@@ -29,6 +29,7 @@ type StateManager interface {
 	// Run-once task management
 	IsTaskCompleted(taskID string) bool
 	MarkTaskCompleted(taskID string, record interface{}) error // Use interface{} to avoid circular dependency
+	MarkTaskFailed(taskID string, record interface{}) error      // Mark task as failed (allows retry, saves failure info)
 	GetRunOnceRecord(taskID string) (interface{}, bool)       // Returns RunOnceRecord-like struct
 
 	// File state management

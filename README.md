@@ -27,7 +27,7 @@ This command will:
 **Manual installation**:
 ```bash
 # Download the binary (replace with latest version)
-curl -L https://github.com/unravelling/kilt/releases/latest/download/kilt-darwin-arm64 -o /usr/local/bin/kilt
+curl -L https://github.com/unravellingtechnologies/kilt/releases/latest/download/kilt-darwin-arm64 -o /usr/local/bin/kilt
 chmod +x /usr/local/bin/kilt
 
 # Initialize with your repository
@@ -39,7 +39,7 @@ kilt sync
 
 **Build from source**:
 ```bash
-git clone https://github.com/unravelling/kilt.git
+git clone https://github.com/unravellingtechnologies/kilt.git
 cd kilt
 make build
 make install
@@ -185,7 +185,7 @@ This project is in active development. See [tasks.md](tasks.md) for the full dev
 
 ```bash
 # Clone the repository
-git clone https://github.com/unravelling/kilt.git
+git clone https://github.com/unravellingtechnologies/kilt.git
 cd kilt
 
 # Build the binary
@@ -304,7 +304,7 @@ The Run Once Plugin executes bootstrap scripts exactly once per machine. It's pe
 - **Timeout protection**: Configurable timeout prevents hanging scripts (default: 5 minutes)
 - **Output capture**: Captures and logs stdout/stderr for debugging
 - **Force re-execution**: Can force scripts to run again via plugin config
-- **Graceful failure handling**: Failed scripts are recorded to prevent infinite retries
+- **Configurable failure handling**: Control whether failed scripts can be retried automatically
 - **Shebang support**: Automatically detects and uses script shebangs
 - **Dry-run support**: Preview which scripts would execute without running them
 
@@ -327,8 +327,9 @@ run_once:
 
 plugins:
   runonce:
-    timeout: "15m"       # Custom timeout (default: 5m)
-    force_run: false     # Set to true to re-execute all scripts
+    timeout: "15m"        # Custom timeout (default: 5m)
+    force_run: false      # Set to true to re-execute all scripts
+    retry_on_failure: false  # If false, failed scripts can be retried on next run (default: false)
 ```
 
 **Script Requirements**:
@@ -358,7 +359,8 @@ fi
 - Each script execution is tracked in `.kilt/state/state.json`
 - Task IDs are generated from script paths (SHA256 hash)
 - Execution records include: timestamp, exit code, and output
-- Failed scripts are also recorded to prevent retry loops
+- Failed scripts are recorded with failure information (exit code and output)
+- By default (`retry_on_failure: false`), failed scripts are not marked as completed, allowing automatic retries on the next run
 
 **Force Re-execution**:
 To re-run scripts that have already executed, set `force_run: true` in plugin config:
@@ -380,9 +382,24 @@ plugins:
 
 **Error Handling**:
 - Scripts that exit with non-zero codes are treated as failures
-- Failed scripts are recorded in state (prevents infinite retries)
+- Failed scripts are recorded in state with exit code and output for debugging
 - Execution stops on first failure (other plugins may rollback)
 - Script output (stdout/stderr) is captured and stored for debugging
+
+**Retry Behavior**:
+The `retry_on_failure` option controls whether failed scripts can be automatically retried:
+
+- **`retry_on_failure: false`** (default): Failed scripts are saved to a failures record but not marked as completed. They will be retried automatically on the next `kilt sync` run. This is useful for transient failures (network issues, temporary service unavailability, etc.).
+
+- **`retry_on_failure: true`**: Failed scripts are marked as completed (same as successful scripts), preventing automatic retries. This is useful when you want to prevent retry loops for scripts that are expected to fail under certain conditions.
+
+```yaml
+plugins:
+  runonce:
+    retry_on_failure: false  # Allow automatic retries (default)
+    # or
+    retry_on_failure: true   # Prevent retries, mark failures as completed
+```
 
 ### Brew Plugin
 
@@ -531,7 +548,7 @@ Kilt provides structured logging with color support:
 - **Respects `--no-color`**: Automatically disables colors when output is not a terminal
 
 Example output:
-```
+```text
 INFO Syncing dotfiles...
 ✓ Successfully synced 15 files
 WARN Some files were skipped (unchanged)
@@ -586,7 +603,7 @@ Pre-commit hooks are available to automatically check code quality. See [.githoo
 
 ### Project Structure
 
-```
+```text
 kilt/
 ├── cmd/kilt/          # CLI entry point
 ├── internal/          # Internal packages

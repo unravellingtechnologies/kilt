@@ -280,9 +280,6 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 			err := fmt.Errorf("plugin %s execution failed: %w", p.Name(), err)
 			result.Errors = append(result.Errors, err)
 
-			// Add to rollback stack
-			e.rollbackStack = append(e.rollbackStack, p)
-
 			// Rollback on failure
 			if err := e.rollback(); err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("rollback failed: %w", err))
@@ -291,6 +288,9 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 
 			return result, fmt.Errorf("execution failed: %w", err)
 		}
+
+		// Add successfully executed plugin to rollback stack
+		e.rollbackStack = append(e.rollbackStack, p)
 
 		pluginsRun++
 		result.Changes = append(result.Changes, executionCtx.Changes...)

@@ -60,7 +60,7 @@ When the tag is pushed:
 
 After the release is created:
 
-1. Check the [GitHub Releases page](https://github.com/unravelling/kilt/releases)
+1. Check the [GitHub Releases page](https://github.com/unravellingtechnologies/kilt/releases)
 2. Verify all platform binaries are present
 3. Verify checksums file is included
 4. Test the installer script with the new release

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,6 +61,93 @@ func TestStateManagerLocking(t *testing.T) {
 		t.Fatalf("Failed to acquire lock after release: %v", err)
 	}
 
+	if err := sm.ReleaseLock(); err != nil {
+		t.Fatalf("Failed to release lock: %v", err)
+	}
+}
+
+func TestStateManagerLocking_StaleLock(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "kilt-state-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	sm, err := NewStateManager(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to create StateManager: %v", err)
+	}
+
+	lockPath := filepath.Join(tmpDir, ".lock")
+
+	// Create a stale lock file with a non-existent PID (very high PID that won't exist)
+	fakePID := 999999
+	err = os.WriteFile(lockPath, []byte(fmt.Sprintf("%d\n", fakePID)), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create stale lock file: %v", err)
+	}
+
+	// Try to acquire lock - should succeed after removing stale lock
+	if err := sm.AcquireLock(); err != nil {
+		t.Fatalf("Failed to acquire lock after stale lock removal: %v", err)
+	}
+
+	// Verify lock file now contains our PID
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("Failed to read lock file: %v", err)
+	}
+
+	currentPID := os.Getpid()
+	expectedPID := fmt.Sprintf("%d\n", currentPID)
+	if string(data) != expectedPID {
+		t.Errorf("Lock file PID mismatch: expected %q, got %q", expectedPID, string(data))
+	}
+
+	// Release lock
+	if err := sm.ReleaseLock(); err != nil {
+		t.Fatalf("Failed to release lock: %v", err)
+	}
+}
+
+func TestStateManagerLocking_InvalidLockFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "kilt-state-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	sm, err := NewStateManager(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to create StateManager: %v", err)
+	}
+
+	lockPath := filepath.Join(tmpDir, ".lock")
+
+	// Create a lock file with invalid PID format
+	err = os.WriteFile(lockPath, []byte("not-a-pid\n"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create invalid lock file: %v", err)
+	}
+
+	// Try to acquire lock - should succeed after removing invalid lock
+	if err := sm.AcquireLock(); err != nil {
+		t.Fatalf("Failed to acquire lock after removing invalid lock: %v", err)
+	}
+
+	// Verify lock file now contains our PID
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("Failed to read lock file: %v", err)
+	}
+
+	currentPID := os.Getpid()
+	expectedPID := fmt.Sprintf("%d\n", currentPID)
+	if string(data) != expectedPID {
+		t.Errorf("Lock file PID mismatch: expected %q, got %q", expectedPID, string(data))
+	}
+
+	// Release lock
 	if err := sm.ReleaseLock(); err != nil {
 		t.Fatalf("Failed to release lock: %v", err)
 	}

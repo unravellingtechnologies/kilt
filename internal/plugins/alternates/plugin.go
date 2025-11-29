@@ -283,8 +283,8 @@ func (p *AlternatesPlugin) matchesCustomPattern(suffix, pattern string) bool {
 		osList := strings.TrimPrefix(pattern, "##os.")
 		osList = strings.Trim(osList, "{}")
 		oses := strings.Split(osList, ",")
-		for _, os := range oses {
-			if strings.TrimSpace(os) == suffix {
+		for _, osName := range oses {
+			if strings.TrimSpace(osName) == suffix {
 				return true
 			}
 		}

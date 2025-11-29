@@ -279,8 +279,13 @@ func TestGitPlugin_HasUncommittedChanges(t *testing.T) {
 	require.NoError(t, cmd.Run())
 
 	// Configure git user for commit
-	exec.Command("git", "config", "user.email", "test@example.com").Run()
-	exec.Command("git", "config", "user.name", "Test User").Run()
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = workDir
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = workDir
+	require.NoError(t, cmd.Run())
 
 	cfg := &core.Config{
 		DotfilesPath: workDir,
@@ -311,6 +316,25 @@ func TestGitPlugin_HasRemoteChanges_NoRemote(t *testing.T) {
 
 	// Initialize git repository
 	cmd := exec.Command("git", "init")
+	cmd.Dir = workDir
+	require.NoError(t, cmd.Run())
+
+	// Configure git user locally in the repo
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = workDir
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = workDir
+	require.NoError(t, cmd.Run())
+
+	// Create initial commit to establish HEAD and a branch
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# Test"), 0644))
+	cmd = exec.Command("git", "add", "README.md")
+	cmd.Dir = workDir
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
 

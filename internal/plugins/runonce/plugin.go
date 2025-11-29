@@ -21,6 +21,7 @@ type RunOncePlugin struct {
 	ctx            *plugin.PluginContext
 	defaultTimeout time.Duration
 	forceRun       bool
+	retryOnFailure bool // If true, mark failed tasks as completed (prevents retry). If false, allow retry.
 	executedTasks  []string // Track tasks executed in this run for rollback
 }
 
@@ -58,6 +59,7 @@ func (p *RunOncePlugin) Initialize(ctx *plugin.PluginContext) error {
 	p.ctx = ctx
 	p.defaultTimeout = 5 * time.Minute // Default 5 minute timeout
 	p.forceRun = false
+	p.retryOnFailure = false // Default: allow retries on failure
 	p.executedTasks = make([]string, 0)
 
 	// Get plugin-specific configuration
@@ -75,6 +77,13 @@ func (p *RunOncePlugin) Initialize(ctx *plugin.PluginContext) error {
 		// Parse force_run flag
 		if forceRun, ok := config["force_run"].(bool); ok {
 			p.forceRun = forceRun
+		}
+
+		// Parse retry_on_failure flag
+		// If true, failed tasks are marked as completed (prevents automatic retries)
+		// If false, failed tasks are not marked as completed (allows retries on next run)
+		if retryOnFailure, ok := config["retry_on_failure"].(bool); ok {
+			p.retryOnFailure = retryOnFailure
 		}
 	}
 
@@ -186,16 +195,34 @@ func (p *RunOncePlugin) executeScript(ctx *plugin.ExecutionContext, scriptPath s
 			p.ctx.Logger.Error("Script execution failed", "script", scriptPath, "error", err, "exit_code", exitCode)
 		}
 
-		// Record failure in state (even failures are tracked to prevent retries)
+		// Record failure in state with exit code and output for debugging
 		record := core.RunOnceRecord{
 			TaskID:     taskID,
 			ExecutedAt: time.Now(),
 			ExitCode:   exitCode,
 			Output:     output,
 		}
-		if err := p.ctx.State.MarkTaskCompleted(taskID, record); err != nil {
-			if p.ctx.Logger != nil {
-				p.ctx.Logger.Warn("Failed to record script execution", "task_id", taskID, "error", err)
+
+		// Handle failure based on retry_on_failure configuration:
+		// - If retryOnFailure is true: mark as completed (prevents automatic retries)
+		//   This is useful when you want to prevent retry loops for expected failures.
+		// - If retryOnFailure is false (default): mark as failed (allows retry on next run)
+		//   This is useful for transient failures that may succeed on retry.
+		// In both cases, exit code and output are saved for debugging.
+		if p.retryOnFailure {
+			// Mark as completed to prevent automatic retries
+			if err := p.ctx.State.MarkTaskCompleted(taskID, record); err != nil {
+				if p.ctx.Logger != nil {
+					p.ctx.Logger.Warn("Failed to record script execution", "task_id", taskID, "error", err)
+				}
+			}
+		} else {
+			// Mark as failed (saves failure info but allows retry)
+			// IsTaskCompleted will return false, so the task can be retried on next run
+			if err := p.ctx.State.MarkTaskFailed(taskID, record); err != nil {
+				if p.ctx.Logger != nil {
+					p.ctx.Logger.Warn("Failed to record script failure", "task_id", taskID, "error", err)
+				}
 			}
 		}
 

@@ -28,7 +28,9 @@ type BrewPlugin struct {
 }
 
 func init() {
-	plugin.RegisterPlugin(&BrewPlugin{})
+	if err := plugin.RegisterPlugin(&BrewPlugin{}); err != nil {
+		panic(fmt.Errorf("failed to register brew plugin: %w", err))
+	}
 }
 
 // Name returns the plugin name
@@ -304,15 +306,12 @@ func (p *BrewPlugin) runBundle(ctx *plugin.ExecutionContext, bundleFile string) 
 		return nil
 	}
 
-	// Run brew bundle
-	cmd := exec.Command(p.brewPath, "bundle", "--file", bundlePath)
-	cmd.Dir = p.ctx.WorkDir
-	cmd.Env = os.Environ()
-
 	// Set timeout
 	cmdCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	cmd = exec.CommandContext(cmdCtx, cmd.Path, cmd.Args[1:]...)
+
+	// Run brew bundle
+	cmd := exec.CommandContext(cmdCtx, p.brewPath, "bundle", "--file", bundlePath)
 	cmd.Dir = p.ctx.WorkDir
 	cmd.Env = os.Environ()
 
@@ -470,7 +469,8 @@ func (p *BrewPlugin) installHomebrew(ctx *plugin.ExecutionContext) error {
 
 	// Download and execute installer
 	// Note: This requires curl to be available
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("curl -fsSL %s", installScript))
+	// Pipe curl output into bash for execution
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("curl -fsSL %s | bash", installScript))
 	cmd.Stdin = os.Stdin  // Allow user interaction for password prompts
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

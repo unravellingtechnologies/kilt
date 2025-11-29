@@ -288,8 +288,14 @@ func (p *DotfilesPlugin) createSymlink(sourcePath, targetPath string, ctx *plugi
 	// Check if target already exists and is correct symlink
 	if linkTarget, err := os.Readlink(targetPath); err == nil {
 		// Resolve absolute paths for comparison
-		absSource, _ := filepath.Abs(sourcePath)
-		absTarget, _ := filepath.Abs(linkTarget)
+		absSource, err := filepath.Abs(sourcePath)
+		if err != nil {
+			return fmt.Errorf("resolving absolute path for source: %w", err)
+		}
+		absTarget, err := filepath.Abs(linkTarget)
+		if err != nil {
+			return fmt.Errorf("resolving absolute path for link target: %w", err)
+		}
 		if absSource == absTarget {
 			// Symlink already points to correct location
 			return nil
@@ -300,20 +306,20 @@ func (p *DotfilesPlugin) createSymlink(sourcePath, targetPath string, ctx *plugi
 	if _, err := os.Stat(targetPath); err == nil {
 		// File exists, check if it's a symlink
 		if _, err := os.Readlink(targetPath); err != nil {
-		// Not a symlink, need to backup
-		if p.ctx.Backup != nil {
-			// Type assert to concrete type
-			backupManager, ok := p.ctx.Backup.(*core.BackupManager)
-			if ok {
-				_, _, err := backupManager.CreateBackup([]string{targetPath}, "kilt: backup before symlink creation")
-				if err != nil {
-					if p.ctx.Logger != nil {
-						p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
+			// Not a symlink, need to backup
+			if p.ctx.Backup != nil {
+				// Type assert to concrete type
+				backupManager, ok := p.ctx.Backup.(*core.BackupManager)
+				if ok {
+					_, _, err := backupManager.CreateBackup([]string{targetPath}, "kilt: backup before symlink creation")
+					if err != nil {
+						if p.ctx.Logger != nil {
+							p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
+						}
 					}
 				}
 			}
-		}
-			// Remove existing file
+			// Remove existing file (always attempt, regardless of backup success/failure)
 			if err := os.Remove(targetPath); err != nil {
 				return fmt.Errorf("failed to remove existing file: %w", err)
 			}

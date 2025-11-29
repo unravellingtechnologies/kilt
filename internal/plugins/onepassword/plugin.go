@@ -196,11 +196,9 @@ func (p *OnePasswordPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 // findOP finds the 1Password CLI installation
 func (p *OnePasswordPlugin) findOP() (string, error) {
 	// First, try to find op in PATH
+	// LookPath already ensures the file is present and executable
 	if opPath, err := exec.LookPath("op"); err == nil {
-		// Verify it's executable
-		if info, err := os.Stat(opPath); err == nil && info.Mode().IsRegular() {
-			return opPath, nil
-		}
+		return opPath, nil
 	}
 
 	// Common installation locations
@@ -212,7 +210,13 @@ func (p *OnePasswordPlugin) findOP() (string, error) {
 
 	// Try common locations
 	for _, path := range opPaths {
-		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		// Ensure file exists, is regular, and has execute permissions
+		mode := info.Mode()
+		if mode.IsRegular() && mode&0111 != 0 {
 			return path, nil
 		}
 	}

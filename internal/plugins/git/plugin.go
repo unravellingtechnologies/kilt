@@ -25,6 +25,7 @@ type GitPlugin struct {
 	sshKey         string
 	gitToken       string
 	clonedRepos    []string // Track cloned repos for rollback
+	askpassScript  string   // Path to temporary GIT_ASKPASS script (for token auth)
 }
 
 func init() {
@@ -63,6 +64,7 @@ func (p *GitPlugin) Initialize(ctx *plugin.PluginContext) error {
 	p.sshKey = ""
 	p.gitToken = ""
 	p.clonedRepos = make([]string, 0)
+	p.askpassScript = ""
 
 	cfg, ok := ctx.Config.(*core.Config)
 	if !ok {
@@ -100,6 +102,9 @@ func (p *GitPlugin) Initialize(ctx *plugin.PluginContext) error {
 		}
 
 		// Parse Git token (for HTTPS authentication)
+		// WARNING: Tokens are stored in memory and used via transient GIT_ASKPASS scripts.
+		// Tokens are never logged, persisted in URLs, or written to repository configuration.
+		// The temporary askpass script is created per-command and cleaned up immediately after use.
 		if token, ok := config["git_token"].(string); ok {
 			p.gitToken = token
 		}
@@ -286,7 +291,10 @@ func (p *GitPlugin) gitFetch(repoPath string) error {
 
 	cmd = exec.Command("git", "fetch", "origin")
 	cmd.Dir = repoPath
-	p.setupGitAuth(cmd)
+	if err := p.setupGitAuth(cmd); err != nil {
+		return fmt.Errorf("failed to setup git authentication: %w", err)
+	}
+	defer p.cleanupAskpassScript()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git fetch failed: %s: %w", string(output), err)
@@ -315,9 +323,8 @@ func (p *GitPlugin) cloneRepository(repo core.Repository, targetPath string) err
 		args = append(args, "--filter=blob:none", "--sparse")
 	}
 
-	// Add repository URL and target path
-	repoURL := p.authenticateURL(repo.URL)
-	args = append(args, repoURL, targetPath)
+	// Add repository URL and target path (do not modify URL with credentials)
+	args = append(args, repo.URL, targetPath)
 
 	// Set timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -325,7 +332,10 @@ func (p *GitPlugin) cloneRepository(repo core.Repository, targetPath string) err
 
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = filepath.Dir(targetPath)
-	p.setupGitAuth(cmd)
+	if err := p.setupGitAuth(cmd); err != nil {
+		return fmt.Errorf("failed to setup git authentication: %w", err)
+	}
+	defer p.cleanupAskpassScript()
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -370,13 +380,19 @@ func (p *GitPlugin) updateRepository(repo core.Repository, repoPath string) erro
 	// Pull latest changes
 	cmd := exec.Command("git", "pull", "--ff-only", "origin", branch)
 	cmd.Dir = repoPath
-	p.setupGitAuth(cmd)
+	if err := p.setupGitAuth(cmd); err != nil {
+		return fmt.Errorf("failed to setup git authentication: %w", err)
+	}
+	defer p.cleanupAskpassScript()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// If fast-forward fails, try regular pull
 		cmd = exec.Command("git", "pull", "origin", branch)
 		cmd.Dir = repoPath
-		p.setupGitAuth(cmd)
+		if err := p.setupGitAuth(cmd); err != nil {
+			return fmt.Errorf("failed to setup git authentication: %w", err)
+		}
+		defer p.cleanupAskpassScript()
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("git pull failed: %s: %w", string(output), err)
@@ -386,30 +402,96 @@ func (p *GitPlugin) updateRepository(repo core.Repository, repoPath string) erro
 	return nil
 }
 
-// authenticateURL adds authentication to a Git URL if needed
-func (p *GitPlugin) authenticateURL(url string) string {
-	// If we have a token and URL is HTTPS, inject token
-	if p.gitToken != "" && strings.HasPrefix(url, "https://") {
-		// Insert token into URL: https://token@github.com/user/repo.git
-		url = strings.Replace(url, "https://", fmt.Sprintf("https://%s@", p.gitToken), 1)
+// createAskpassScript creates a temporary GIT_ASKPASS script that outputs the token
+// This provides transient credential authentication without persisting tokens in URLs or config
+func (p *GitPlugin) createAskpassScript() (string, error) {
+	if p.gitToken == "" {
+		return "", nil
 	}
-	return url
+
+	// Create temporary script file
+	tmpFile, err := os.CreateTemp("", "kilt-git-askpass-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary askpass script: %w", err)
+	}
+	scriptPath := tmpFile.Name()
+
+	// Write script that outputs the token
+	// The script will be called by Git when it needs credentials
+	scriptContent := fmt.Sprintf(`#!/bin/sh
+echo "%s"
+`, p.gitToken)
+
+	if _, err := tmpFile.WriteString(scriptContent); err != nil {
+		tmpFile.Close()
+		os.Remove(scriptPath)
+		return "", fmt.Errorf("failed to write askpass script: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(scriptPath)
+		return "", fmt.Errorf("failed to close askpass script: %w", err)
+	}
+
+	// Make script executable
+	if err := os.Chmod(scriptPath, 0700); err != nil {
+		os.Remove(scriptPath)
+		return "", fmt.Errorf("failed to make askpass script executable: %w", err)
+	}
+
+	return scriptPath, nil
 }
 
-// setupGitAuth configures Git command with authentication
-func (p *GitPlugin) setupGitAuth(cmd *exec.Cmd) {
+// cleanupAskpassScript removes the temporary GIT_ASKPASS script
+func (p *GitPlugin) cleanupAskpassScript() {
+	if p.askpassScript != "" {
+		os.Remove(p.askpassScript)
+		p.askpassScript = ""
+	}
+}
+
+// setupGitAuth configures Git command with authentication using transient credentials
+// For HTTPS URLs with tokens, creates a temporary GIT_ASKPASS script that provides
+// the token only for the duration of the Git operation, preventing token persistence
+// in repository configuration or process arguments.
+func (p *GitPlugin) setupGitAuth(cmd *exec.Cmd) error {
+	// Initialize base environment: use existing cmd.Env if non-nil, else os.Environ()
+	baseEnv := cmd.Env
+	if baseEnv == nil {
+		baseEnv = os.Environ()
+	}
+
+	// Build environment variables slice
+	env := make([]string, len(baseEnv))
+	copy(env, baseEnv)
+
 	// Set SSH key if provided
 	if p.sshKey != "" {
 		// Set GIT_SSH_COMMAND to use specific key
 		sshCmd := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", p.sshKey)
-		cmd.Env = append(os.Environ(), "GIT_SSH_COMMAND="+sshCmd)
+		env = append(env, "GIT_SSH_COMMAND="+sshCmd)
 	}
 
-	// Set Git token in environment if provided (for HTTPS)
+	// Set up transient credential mechanism for HTTPS token authentication
+	// This avoids persisting tokens in URLs or repository configuration
 	if p.gitToken != "" {
-		// Extract host from URL if possible, or use generic
-		cmd.Env = append(cmd.Env, "GIT_ASKPASS=echo", "GIT_TERMINAL_PROMPT=0")
+		// Create temporary GIT_ASKPASS script if not already created
+		if p.askpassScript == "" {
+			scriptPath, err := p.createAskpassScript()
+			if err != nil {
+				return fmt.Errorf("failed to create askpass script: %w", err)
+			}
+			p.askpassScript = scriptPath
+		}
+
+		// Configure Git to use the askpass script for credentials
+		env = append(env, "GIT_ASKPASS="+p.askpassScript)
+		env = append(env, "GIT_TERMINAL_PROMPT=0")
 	}
+
+	// Assign the final environment back to cmd
+	cmd.Env = env
+	return nil
 }
 
 // hasUncommittedChanges checks if there are uncommitted local changes
@@ -438,10 +520,22 @@ func (p *GitPlugin) hasRemoteChanges() (bool, error) {
 	// Compare HEAD with origin/branch
 	cmd = exec.Command("git", "rev-list", "--count", fmt.Sprintf("HEAD..origin/%s", branch))
 	cmd.Dir = p.repoPath
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// If origin/branch doesn't exist, assume no remote changes
-		return false, nil
+		// Check if error indicates no remote branch (not a real error)
+		errorText := strings.ToLower(string(output))
+		isNoRemoteBranch := strings.Contains(errorText, "unknown revision or path not in the working tree") ||
+			strings.Contains(errorText, "couldn't find remote ref") ||
+			strings.Contains(errorText, "ambiguous argument") ||
+			strings.Contains(errorText, "fatal: ambiguous argument")
+
+		if isNoRemoteBranch {
+			// No remote branch exists - this is expected, not an error
+			return false, nil
+		}
+
+		// Other errors (network, auth, etc.) should be surfaced
+		return false, fmt.Errorf("failed to check remote changes: %s: %w", string(output), err)
 	}
 
 	count := strings.TrimSpace(string(output))
@@ -452,7 +546,10 @@ func (p *GitPlugin) hasRemoteChanges() (bool, error) {
 func (p *GitPlugin) gitPull() error {
 	cmd := exec.Command("git", "pull", "--ff-only", "origin")
 	cmd.Dir = p.repoPath
-	p.setupGitAuth(cmd)
+	if err := p.setupGitAuth(cmd); err != nil {
+		return fmt.Errorf("failed to setup git authentication: %w", err)
+	}
+	defer p.cleanupAskpassScript()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git pull failed: %s: %w", string(output), err)
@@ -470,20 +567,42 @@ func (p *GitPlugin) pullWithRebase() error {
 	// Pull with rebase
 	cmd = exec.Command("git", "pull", "--rebase", "origin")
 	cmd.Dir = p.repoPath
-	p.setupGitAuth(cmd)
+	if err := p.setupGitAuth(cmd); err != nil {
+		return fmt.Errorf("failed to setup git authentication: %w", err)
+	}
+	defer p.cleanupAskpassScript()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Restore stash if pull failed
 		cmd = exec.Command("git", "stash", "pop")
 		cmd.Dir = p.repoPath
-		_ = cmd.Run()
+		stashOutput, stashErr := cmd.CombinedOutput()
+		if stashErr != nil {
+			// Log the stash pop error but return the original pull error
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("Failed to restore stashed changes after pull failure",
+					"error", stashErr,
+					"output", string(stashOutput),
+					"hint", "run 'git stash list' to check your stashes")
+			}
+		}
 		return fmt.Errorf("git pull --rebase failed: %s: %w", string(output), err)
 	}
 
 	// Restore stash if it exists
 	cmd = exec.Command("git", "stash", "pop")
 	cmd.Dir = p.repoPath
-	_ = cmd.Run() // Ignore errors (might be no stash)
+	stashOutput, stashErr := cmd.CombinedOutput()
+	if stashErr != nil {
+		// Log the stash pop failure and return an error so users are notified
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Error("Failed to restore stashed changes after successful pull",
+				"error", stashErr,
+				"output", string(stashOutput),
+				"hint", "run 'git stash list' to check your stashes")
+		}
+		return fmt.Errorf("failed to restore stashed changes: %s: %w", string(stashOutput), stashErr)
+	}
 
 	return nil
 }
@@ -545,7 +664,10 @@ func (p *GitPlugin) commitAndPush() error {
 		// Push
 	cmd = exec.Command("git", "push", "origin")
 	cmd.Dir = p.repoPath
-	p.setupGitAuth(cmd)
+	if err := p.setupGitAuth(cmd); err != nil {
+		return fmt.Errorf("failed to setup git authentication: %w", err)
+	}
+	defer p.cleanupAskpassScript()
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git push failed: %s: %w", string(output), err)
 	}
@@ -580,6 +702,9 @@ func (p *GitPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 	// Clear cloned repos
 	p.clonedRepos = make([]string, 0)
+
+	// Clean up askpass script if it exists
+	p.cleanupAskpassScript()
 
 	return nil
 }

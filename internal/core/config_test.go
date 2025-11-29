@@ -113,21 +113,34 @@ func TestFindConfigFile(t *testing.T) {
 }
 
 func TestFindConfigFile_HomeDir(t *testing.T) {
-	// Test with home directory config
-	homeDir, err := os.UserHomeDir()
+	// Save original working directory and HOME
+	originalWd, err := os.Getwd()
 	require.NoError(t, err)
+	defer os.Chdir(originalWd)
 
-	kiltDir := filepath.Join(homeDir, ".kilt")
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		if originalHome != "" {
+			os.Setenv("HOME", originalHome)
+		} else {
+			os.Unsetenv("HOME")
+		}
+	}()
+
+	// Create a temporary fake home directory
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+
+	// Create .kilt directory and config file under fake home
+	kiltDir := filepath.Join(fakeHome, ".kilt")
 	require.NoError(t, os.MkdirAll(kiltDir, 0755))
 
 	configPath := filepath.Join(kiltDir, "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0644))
-	defer os.Remove(configPath)
 
-	// Change to a directory without .kilt/config.yaml
+	// Change to a separate temporary working directory (not the fake home)
 	tmpDir := t.TempDir()
 	os.Chdir(tmpDir)
-	defer os.Chdir("/")
 
 	found, err := FindConfigFile()
 	require.NoError(t, err)
@@ -135,19 +148,31 @@ func TestFindConfigFile_HomeDir(t *testing.T) {
 }
 
 func TestFindConfigFile_NotFound(t *testing.T) {
+	// Save original working directory and HOME
+	originalWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(originalWd)
+
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		if originalHome != "" {
+			os.Setenv("HOME", originalHome)
+		} else {
+			os.Unsetenv("HOME")
+		}
+	}()
+
+	// Create a temporary fake home directory (isolated environment)
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+
 	// Change to a directory without config
 	tmpDir := t.TempDir()
 	os.Chdir(tmpDir)
-	defer os.Chdir("/")
 
-	// Remove home config if it exists
-	homeDir, _ := os.UserHomeDir()
-	homeConfig := filepath.Join(homeDir, ".kilt", "config.yaml")
-	os.Remove(homeConfig)
-	dotfilesConfig := filepath.Join(homeDir, ".dotfiles", ".kilt", "config.yaml")
-	os.Remove(dotfilesConfig)
-
-	_, err := FindConfigFile()
+	// Verify no config files exist in fake home
+	// (they shouldn't exist since we just created the temp dir)
+	_, err = FindConfigFile()
 	assert.Error(t, err, "FindConfigFile() should return error when config not found")
 }
 

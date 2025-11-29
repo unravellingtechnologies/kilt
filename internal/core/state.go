@@ -11,7 +11,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -26,6 +29,7 @@ type StateManager struct {
 // StateDB represents the state database structure
 type StateDB struct {
 	RunOnce  map[string]RunOnceRecord `json:"run_once"`
+	Failures map[string]RunOnceRecord `json:"failures"` // Track failed tasks separately (allows retry)
 	Files    map[string]FileRecord    `json:"files"`
 	Plugins  map[string]PluginRecord  `json:"plugins"`
 	LastSync time.Time                `json:"last_sync"`
@@ -66,9 +70,10 @@ func NewStateManager(stateDir string) (*StateManager, error) {
 	sm := &StateManager{
 		stateDir: stateDir,
 		db: &StateDB{
-			RunOnce: make(map[string]RunOnceRecord),
-			Files:   make(map[string]FileRecord),
-			Plugins: make(map[string]PluginRecord),
+			RunOnce:  make(map[string]RunOnceRecord),
+			Failures: make(map[string]RunOnceRecord),
+			Files:    make(map[string]FileRecord),
+			Plugins:  make(map[string]PluginRecord),
 		},
 	}
 
@@ -91,23 +96,32 @@ func (sm *StateManager) load() error {
 		return err
 	}
 
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	if err := json.Unmarshal(data, sm.db); err != nil {
+	// Unmarshal into a temporary struct without holding the lock
+	// This avoids holding the mutex during I/O operations
+	var tempDB StateDB
+	if err := json.Unmarshal(data, &tempDB); err != nil {
 		return fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
 	// Initialize maps if they're nil (for backward compatibility)
-	if sm.db.RunOnce == nil {
-		sm.db.RunOnce = make(map[string]RunOnceRecord)
+	if tempDB.RunOnce == nil {
+		tempDB.RunOnce = make(map[string]RunOnceRecord)
 	}
-	if sm.db.Files == nil {
-		sm.db.Files = make(map[string]FileRecord)
+	if tempDB.Failures == nil {
+		tempDB.Failures = make(map[string]RunOnceRecord)
 	}
-	if sm.db.Plugins == nil {
-		sm.db.Plugins = make(map[string]PluginRecord)
+	if tempDB.Files == nil {
+		tempDB.Files = make(map[string]FileRecord)
 	}
+	if tempDB.Plugins == nil {
+		tempDB.Plugins = make(map[string]PluginRecord)
+	}
+
+	// Acquire lock and assign the parsed state
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	sm.db = &tempDB
 
 	return nil
 }
@@ -137,6 +151,45 @@ func (sm *StateManager) save() error {
 	return nil
 }
 
+// isProcessAlive checks if a process with the given PID is still running
+// Returns true if the process exists, false otherwise
+func isProcessAlive(pid int) bool {
+	// Use syscall.Kill with signal 0 to check if process exists
+	// Signal 0 doesn't actually send a signal, it just checks if the process is alive
+	err := syscall.Kill(pid, 0)
+	return err == nil
+}
+
+// checkAndRemoveStaleLock checks if a lock file exists and is stale (process is dead)
+// Returns true if the lock was removed (stale or invalid), false if lock is valid
+func (sm *StateManager) checkAndRemoveStaleLock(lockPath string) (bool, error) {
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		// Can't read lock file - remove it (might be corrupted)
+		os.Remove(lockPath)
+		return true, nil
+	}
+
+	// Parse PID from lock file
+	pidStr := strings.TrimSpace(string(data))
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		// Invalid PID format - remove stale lock file
+		os.Remove(lockPath)
+		return true, nil
+	}
+
+	// Check if process is still alive
+	if !isProcessAlive(pid) {
+		// Process is dead - remove stale lock file
+		os.Remove(lockPath)
+		return true, nil
+	}
+
+	// Process is alive - lock is valid
+	return false, fmt.Errorf("state is locked by another process (PID: %d)", pid)
+}
+
 // AcquireLock acquires a file-based lock for concurrent execution safety
 func (sm *StateManager) AcquireLock() error {
 	sm.mu.Lock()
@@ -147,12 +200,36 @@ func (sm *StateManager) AcquireLock() error {
 	}
 
 	lockPath := filepath.Join(sm.stateDir, ".lock")
+
+	// Check if lock file exists and if it's stale
+	if _, err := os.Stat(lockPath); err == nil {
+		removed, err := sm.checkAndRemoveStaleLock(lockPath)
+		if !removed {
+			// Lock is valid (process is alive)
+			return err
+		}
+		// Stale lock was removed, continue to create new lock
+	}
+
+	// Try to create the lock file
 	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		if os.IsExist(err) {
-			return fmt.Errorf("state is locked by another process")
+			// Lock file was created between our check and this attempt (race condition)
+			// Check again if it's stale
+			removed, checkErr := sm.checkAndRemoveStaleLock(lockPath)
+			if !removed {
+				// Lock is valid
+				return checkErr
+			}
+			// Stale lock was removed - retry once
+			lockFile, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("failed to create lock file after removing stale lock: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create lock file: %w", err)
 		}
-		return fmt.Errorf("failed to create lock file: %w", err)
 	}
 
 	// Write PID to lock file for debugging
@@ -225,6 +302,33 @@ func (sm *StateManager) MarkTaskCompleted(taskID string, record interface{}) err
 		}
 	}
 	return sm.markTaskCompletedInternal(taskID, runOnceRecord)
+}
+
+// MarkTaskFailed marks a run-once task as failed (allows retry, saves failure info)
+// This saves failure information but does not mark the task as completed,
+// so IsTaskCompleted will return false and the task can be retried.
+func (sm *StateManager) MarkTaskFailed(taskID string, record interface{}) error {
+	runOnceRecord, ok := record.(RunOnceRecord)
+	if !ok {
+		// Try pointer type
+		if ptr, ok := record.(*RunOnceRecord); ok {
+			runOnceRecord = *ptr
+		} else {
+			return fmt.Errorf("invalid record type for task %s: expected RunOnceRecord", taskID)
+		}
+	}
+
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	runOnceRecord.TaskID = taskID
+	if runOnceRecord.ExecutedAt.IsZero() {
+		runOnceRecord.ExecutedAt = time.Now()
+	}
+
+	// Save to failures map (not RunOnce map, so IsTaskCompleted returns false)
+	sm.db.Failures[taskID] = runOnceRecord
+	return sm.save()
 }
 
 // GetRunOnceRecord retrieves a run-once task record (plugin interface compatible)

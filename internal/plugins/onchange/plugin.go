@@ -277,11 +277,13 @@ func (p *OnChangePlugin) checkConditionalChanges(ctx *plugin.ExecutionContext) (
 	for _, watchFile := range p.watchFiles {
 		hasChanged, err := p.ctx.State.HasFileChanged(watchFile)
 		if err != nil {
-			// If file doesn't exist and we have no record, it's a new file (changed)
+			// If file doesn't exist, check if it was previously tracked (deletion)
 			if _, statErr := os.Stat(watchFile); os.IsNotExist(statErr) {
-				// Check if we have a record (file was deleted)
+				// Only deletions of previously-tracked files are considered changes
+				// New files with no record are not treated as changed
 				_, hasRecord := p.ctx.State.GetFileChecksum(watchFile)
 				if hasRecord {
+					// File was deleted (had a record but no longer exists)
 					changedFiles = append(changedFiles, watchFile)
 				}
 				continue
