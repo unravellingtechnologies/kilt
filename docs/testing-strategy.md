@@ -231,8 +231,8 @@ func TestFullSyncWorkflow(t *testing.T) {
     env := SetupTestEnvironment(t)
     defer env.Cleanup(t)
     
-    // 1. Initialize
-    err := env.InitializeRepo()
+    // 1. Initialise
+    err := env.InitialiseRepo()
     require.NoError(t, err)
     
     // 2. Create engine
@@ -427,7 +427,7 @@ func TestConfig(t *testing.T)
 
 ### 2. Test Organization
 
-- One test per behavior
+- One test per behaviour
 - Group related tests with subtests
 - Use table-driven tests for multiple cases
 

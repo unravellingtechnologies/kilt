@@ -26,7 +26,7 @@
 ## System Overview
 
 ### Purpose
-Kilt is a Git-first dotfiles manager that transforms a fresh macOS (or Linux) system into a personalized development environment using a single command. It emphasizes idempotency, safety, and extensibility through a plugin architecture.
+Kilt is a Git-first dotfiles manager that transforms a fresh macOS (or Linux) system into a personalised development environment using a single command. It emphasizes idempotency, safety, and extensibility through a plugin architecture.
 
 ### Core Design Goals
 - **Simplicity**: One command to bootstrap everything
@@ -112,7 +112,7 @@ Kilt is a Git-first dotfiles manager that transforms a fresh macOS (or Linux) sy
 #### Main Commands
 ```go
 kilt
-├── init <repo-url>      // Initialize from Git repository
+├── init <repo-url>      // Initialise from Git repository
 ├── sync                 // Pull latest and apply changes
 ├── doctor               // Validate setup and dependencies
 ├── version              // Show version information
@@ -127,7 +127,7 @@ kilt
 - `--verbose`: Detailed logging output
 - `--debug`: Extra debug information
 - `--config <path>`: Custom config file location
-- `--no-color`: Disable colored output
+- `--no-colour`: Disable coloured output
 - `--force`: Skip confirmation prompts
 
 #### Command Flow
@@ -138,7 +138,7 @@ Cobra Command Handler
     ↓
 Parse Flags & Arguments
     ↓
-Initialize Core Engine
+Initialise Core Engine
     ↓
 Load Configuration
     ↓
@@ -396,7 +396,7 @@ type ExecutionPhase struct {
 ```
 
 **Key Functions**:
-- `Initialize(cfg *Config) error`
+- `Initialise(cfg *Config) error`
 - `BuildExecutionPlan() (*ExecutionPlan, error)`
 - `Execute(plan *ExecutionPlan) error`
 - `Rollback() error`
@@ -416,7 +416,7 @@ type Plugin interface {
     Description() string
     
     // Lifecycle hooks
-    Initialize(ctx *PluginContext) error
+    Initialise(ctx *Context) error
     Validate() error
     Execute(ctx *ExecutionContext) error
     Rollback(ctx *ExecutionContext) error
@@ -426,8 +426,8 @@ type Plugin interface {
     Phase() ExecutionPhase
 }
 
-// PluginContext provides shared state to plugins
-type PluginContext struct {
+// Context provides shared state to plugins
+type Context struct {
     Config       *Config
     State        *StateManager
     Backup       *BackupManager
@@ -440,7 +440,7 @@ type PluginContext struct {
 
 // ExecutionContext provides runtime context
 type ExecutionContext struct {
-    *PluginContext
+    *Context
     Changes      []Change
     Errors       []error
     StartTime    time.Time
@@ -450,7 +450,7 @@ type ExecutionContext struct {
 ### Plugin Lifecycle
 
 ```
-Registration → Initialize → Validate → Execute → Cleanup
+Registration → Initialise → Validate → Execute → Cleanup
                    ↓            ↓          ↓
                  Error ←────────┴──────────┴──→ Rollback
 ```
@@ -458,22 +458,22 @@ Registration → Initialize → Validate → Execute → Cleanup
 ### Plugin Registry
 
 ```go
-type PluginRegistry struct {
+type Registry struct {
     plugins map[string]Plugin
     mu      sync.RWMutex
 }
 
-func (r *PluginRegistry) Register(p Plugin) error {
+func (r *Registry) Register(p Plugin) error {
     // Check for duplicate names
     // Validate dependencies
     // Add to registry
 }
 
-func (r *PluginRegistry) Get(name string) (Plugin, error) {
+func (r *Registry) Get(name string) (Plugin, error) {
     // Retrieve plugin by name
 }
 
-func (r *PluginRegistry) GetOrderedPlugins() ([]Plugin, error) {
+func (r *Registry) GetOrderedPlugins() ([]Plugin, error) {
     // Topological sort based on dependencies
     // Group by execution phase
 }
@@ -547,7 +547,7 @@ func (p *OnChangePlugin) Execute(ctx *ExecutionContext) error {
 
 ## Data Flow
 
-### Initialization Flow (`kilt init`)
+### Initialisation Flow (`kilt init`)
 
 ```
 User: kilt init https://github.com/user/dotfiles
@@ -562,7 +562,7 @@ User: kilt init https://github.com/user/dotfiles
     ↓
 5. Parse YAML configuration
     ↓
-6. Initialize plugins
+6. Initialise plugins
     ↓
 7. Execute sync flow
 ```
@@ -1071,7 +1071,7 @@ func FormatError(err error) string {
     switch {
     case errors.Is(err, ErrConfigNotFound):
         return `Configuration file not found.
-Run 'kilt init <repo-url>' to initialize, or create ~/.dotfiles/.kilt/config.yaml manually.`
+Run 'kilt init <repo-url>' to initialise, or create ~/.dotfiles/.kilt/config.yaml manually.`
     
     case errors.Is(err, ErrLockTimeout):
         return `Another kilt process is running.
@@ -1221,7 +1221,7 @@ func TestGitPull(t *testing.T) {
 #### 1. Lazy Loading
 - Load configuration only when needed
 - Parse templates on-demand
-- Initialize plugins only when used
+- Initialise plugins only when used
 
 #### 2. Parallel Execution
 - Independent plugins can run concurrently
@@ -1279,7 +1279,7 @@ func (p *FilesPlugin) Execute(ctx *ExecutionContext) error {
 
 ### Performance Targets
 
-- **Initialization**: < 5 seconds (including Git clone)
+- **Initialisation**: < 5 seconds (including Git clone)
 - **Sync (no changes)**: < 1 second
 - **Sync (with changes)**: < 10 seconds for typical setup
 - **Memory**: < 50MB peak usage

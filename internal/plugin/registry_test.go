@@ -14,23 +14,23 @@ type mockPlugin struct {
 	description  string
 	dependencies []string
 	phase        ExecutionPhase
-	initialized  bool
+	initialised  bool
 	validated    bool
 	executed     bool
 	rollbacked   bool
 }
 
-func (m *mockPlugin) Name() string                          { return m.name }
-func (m *mockPlugin) Version() string                       { return m.version }
-func (m *mockPlugin) Description() string                   { return m.description }
-func (m *mockPlugin) Dependencies() []string                { return m.dependencies }
-func (m *mockPlugin) Phase() ExecutionPhase                 { return m.phase }
-func (m *mockPlugin) Initialize(ctx *PluginContext) error   { m.initialized = true; return nil }
-func (m *mockPlugin) Validate() error                       { m.validated = true; return nil }
-func (m *mockPlugin) Execute(ctx *ExecutionContext) error   { m.executed = true; return nil }
-func (m *mockPlugin) Rollback(ctx *ExecutionContext) error  { m.rollbacked = true; return nil }
+func (m *mockPlugin) Name() string                         { return m.name }
+func (m *mockPlugin) Version() string                      { return m.version }
+func (m *mockPlugin) Description() string                  { return m.description }
+func (m *mockPlugin) Dependencies() []string               { return m.dependencies }
+func (m *mockPlugin) Phase() ExecutionPhase                { return m.phase }
+func (m *mockPlugin) Initialise(ctx *Context) error        { m.initialised = true; return nil }
+func (m *mockPlugin) Validate() error                      { m.validated = true; return nil }
+func (m *mockPlugin) Execute(ctx *ExecutionContext) error  { m.executed = true; return nil }
+func (m *mockPlugin) Rollback(ctx *ExecutionContext) error { m.rollbacked = true; return nil }
 
-func TestPluginRegistry_Register(t *testing.T) {
+func TestRegistry_Register(t *testing.T) {
 	registry := NewRegistry()
 
 	tests := []struct {
@@ -89,7 +89,7 @@ func TestPluginRegistry_Register(t *testing.T) {
 	}
 }
 
-func TestPluginRegistry_Get(t *testing.T) {
+func TestRegistry_Get(t *testing.T) {
 	registry := NewRegistry()
 	plugin := &mockPlugin{name: "test-plugin", version: "1.0.0", phase: PhaseCore}
 	require.NoError(t, registry.Register(plugin))
@@ -124,7 +124,7 @@ func TestPluginRegistry_Get(t *testing.T) {
 	}
 }
 
-func TestPluginRegistry_Unregister(t *testing.T) {
+func TestRegistry_Unregister(t *testing.T) {
 	registry := NewRegistry()
 	plugin1 := &mockPlugin{name: "plugin1", version: "1.0.0", phase: PhaseCore}
 	plugin2 := &mockPlugin{name: "plugin2", version: "1.0.0", phase: PhaseCore, dependencies: []string{"plugin1"}}
@@ -145,7 +145,7 @@ func TestPluginRegistry_Unregister(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPluginRegistry_GetOrderedPlugins(t *testing.T) {
+func TestRegistry_GetOrderedPlugins(t *testing.T) {
 	registry := NewRegistry()
 
 	// Create plugins with dependencies
@@ -169,7 +169,7 @@ func TestPluginRegistry_GetOrderedPlugins(t *testing.T) {
 	assert.Equal(t, "plugin-c", ordered[2].Name())
 }
 
-func TestPluginRegistry_GetOrderedPlugins_CircularDependency(t *testing.T) {
+func TestRegistry_GetOrderedPlugins_CircularDependency(t *testing.T) {
 	registry := NewRegistry()
 
 	// Create circular dependency: A -> B -> C -> A
@@ -186,7 +186,7 @@ func TestPluginRegistry_GetOrderedPlugins_CircularDependency(t *testing.T) {
 	assert.ErrorIs(t, err, ErrCircularDependency)
 }
 
-func TestPluginRegistry_GetOrderedPlugins_MissingDependency(t *testing.T) {
+func TestRegistry_GetOrderedPlugins_MissingDependency(t *testing.T) {
 	registry := NewRegistry()
 
 	plugin := &mockPlugin{name: "plugin", version: "1.0.0", phase: PhaseCore, dependencies: []string{"non-existent"}}
@@ -197,7 +197,7 @@ func TestPluginRegistry_GetOrderedPlugins_MissingDependency(t *testing.T) {
 	assert.ErrorIs(t, err, ErrMissingDependency)
 }
 
-func TestPluginRegistry_GetOrderedPlugins_PhaseOrdering(t *testing.T) {
+func TestRegistry_GetOrderedPlugins_PhaseOrdering(t *testing.T) {
 	registry := NewRegistry()
 
 	// Create plugins in different phases
@@ -220,7 +220,7 @@ func TestPluginRegistry_GetOrderedPlugins_PhaseOrdering(t *testing.T) {
 	assert.Equal(t, PhasePostSync, ordered[2].Phase())
 }
 
-func TestPluginRegistry_List(t *testing.T) {
+func TestRegistry_List(t *testing.T) {
 	registry := NewRegistry()
 
 	require.NoError(t, registry.Register(&mockPlugin{name: "plugin-c", version: "1.0.0", phase: PhaseCore}))
@@ -236,7 +236,7 @@ func TestPluginRegistry_List(t *testing.T) {
 	assert.Equal(t, "plugin-c", list[2])
 }
 
-func TestPluginRegistry_Count(t *testing.T) {
+func TestRegistry_Count(t *testing.T) {
 	registry := NewRegistry()
 
 	assert.Zero(t, registry.Count())

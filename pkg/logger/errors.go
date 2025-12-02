@@ -1,7 +1,8 @@
-// Package logger provides structured logging with color support for Kilt.
+// Package logger provides structured logging with colour support for Kilt.
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -57,30 +58,31 @@ func WithSuggestionAndContext(err error, suggestion string, context map[string]i
 	}
 }
 
-// FormatError formats an error with color support
-func FormatError(err error, colorized bool) string {
+// FormatError formats an error with colour support
+func FormatError(err error, colourized bool) string {
 	if err == nil {
 		return ""
 	}
 
-	var colorReset, colorRed, colorBold string
-	if colorized {
-		colorReset = "\033[0m"
-		colorRed = "\033[31m"
-		colorBold = "\033[1m"
+	var colourReset, colourRed, colourBold string
+	if colourized {
+		colourReset = "\033[0m"
+		colourRed = "\033[31m"
+		colourBold = "\033[1m"
 	}
 
 	msg := err.Error()
 
 	// Check if it's an ErrorWithSuggestion
-	if ews, ok := err.(*ErrorWithSuggestion); ok {
+	ews := &ErrorWithSuggestion{}
+	if errors.As(err, &ews) {
 		parts := strings.Split(ews.Err.Error(), "\n")
 		errorMsg := parts[0]
 		rest := strings.Join(parts[1:], "\n")
 
-		formatted := colorRed + colorBold + "Error: " + colorReset + colorRed + errorMsg + colorReset
+		formatted := colourRed + colourBold + "Error: " + colourReset + colourRed + errorMsg + colourReset
 		if ews.Suggestion != "" {
-			formatted += "\n\n" + colorBold + "Suggestion: " + colorReset + ews.Suggestion
+			formatted += "\n\n" + colourBold + "Suggestion: " + colourReset + ews.Suggestion
 		}
 		if rest != "" {
 			formatted += "\n" + rest
@@ -88,7 +90,5 @@ func FormatError(err error, colorized bool) string {
 		return formatted
 	}
 
-	return colorRed + colorBold + "Error: " + colorReset + colorRed + msg + colorReset
+	return colourRed + colourBold + "Error: " + colourReset + colourRed + msg + colourReset
 }
-
-

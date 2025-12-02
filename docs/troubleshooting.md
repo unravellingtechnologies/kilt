@@ -94,7 +94,7 @@ This guide helps you diagnose and fix common issues with Kilt.
    ls -la ~/.dotfiles/.kilt/config.yaml
    ```
 
-2. Initialize Kilt if not done:
+2. Initialise Kilt if not done:
    ```bash
    kilt init https://github.com/yourusername/dotfiles
    ```
@@ -539,7 +539,7 @@ When reporting an issue, include:
 3. Configuration file (sanitized, no secrets)
 4. Error messages or logs
 5. Steps to reproduce
-6. Expected vs actual behavior
+6. Expected vs actual behaviour
 
 ### Common Commands for Debugging
 

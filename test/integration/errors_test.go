@@ -1,3 +1,5 @@
+// Package integration provides integration tests for the kilt project.
+// These tests verify end-to-end functionality across multiple components.
 package integration
 
 import (
@@ -28,12 +30,12 @@ func TestInvalidConfig(t *testing.T) {
 
 	// Create invalid config file
 	invalidConfigPath := filepath.Join(env.RepoPath, ".kilt", "config.yaml")
-	if err := os.MkdirAll(filepath.Dir(invalidConfigPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(invalidConfigPath), 0o755); err != nil {
 		t.Fatalf("Failed to create config directory: %v", err)
 	}
 
 	invalidYAML := "this is not valid yaml: [unclosed"
-	if err := os.WriteFile(invalidConfigPath, []byte(invalidYAML), 0644); err != nil {
+	if err := os.WriteFile(invalidConfigPath, []byte(invalidYAML), 0o644); err != nil {
 		t.Fatalf("Failed to write invalid config: %v", err)
 	}
 
@@ -132,10 +134,10 @@ func TestPermissionDenied(t *testing.T) {
 	}
 
 	// Remove write permissions from home directory
-	if err := os.Chmod(env.HomeDir, 0555); err != nil {
+	if err := os.Chmod(env.HomeDir, 0o555); err != nil {
 		t.Fatalf("Failed to change permissions: %v", err)
 	}
-	defer os.Chmod(env.HomeDir, 0755) // Restore permissions
+	defer os.Chmod(env.HomeDir, 0o755) // Restore permissions
 
 	registry := plugin.GetDefaultRegistry()
 	engine := env.CreateEngine(t, registry)

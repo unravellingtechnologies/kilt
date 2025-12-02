@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -19,28 +20,28 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func TestDirectoriesPlugin_Name(t *testing.T) {
-	p := &DirectoriesPlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "directories", p.Name())
 }
 
-func TestDirectoriesPlugin_Version(t *testing.T) {
-	p := &DirectoriesPlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestDirectoriesPlugin_Phase(t *testing.T) {
-	p := &DirectoriesPlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhaseCore, p.Phase())
 }
 
-func TestDirectoriesPlugin_Dependencies(t *testing.T) {
-	p := &DirectoriesPlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Empty(t, deps)
 }
 
-func setupDirectoriesPlugin(t *testing.T, workDir string, cfg *core.Config) (*DirectoriesPlugin, *plugin.PluginContext) {
+func setupPlugin(t *testing.T, workDir string, cfg *core.Config) (*Plugin, *plugin.Context) {
 	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
 	require.NoError(t, err)
@@ -52,7 +53,7 @@ func setupDirectoriesPlugin(t *testing.T, workDir string, cfg *core.Config) (*Di
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -63,31 +64,31 @@ func setupDirectoriesPlugin(t *testing.T, workDir string, cfg *core.Config) (*Di
 		HomeDir:  homeDir,
 	}
 
-	p := &DirectoriesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	return p, ctx
 }
 
-func TestDirectoriesPlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Directories: []string{},
 	}
 
-	p, _ := setupDirectoriesPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.NotNil(t, p.ctx)
-	assert.Equal(t, os.FileMode(0755), p.defaultMode)
+	assert.Equal(t, os.FileMode(0o755), p.defaultMode)
 }
 
-func TestDirectoriesPlugin_Initialize_WithConfig(t *testing.T) {
+func TestPlugin_Initialise_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Directories: []string{},
@@ -98,15 +99,15 @@ func TestDirectoriesPlugin_Initialize_WithConfig(t *testing.T) {
 		},
 	}
 
-	p, _ := setupDirectoriesPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
-	assert.Equal(t, os.FileMode(0700), p.defaultMode)
+	assert.Equal(t, os.FileMode(0o700), p.defaultMode)
 }
 
-func TestDirectoriesPlugin_Execute_CreateDirectory(t *testing.T) {
+func TestPlugin_Execute_CreateDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	targetDir := filepath.Join(tmpDir, "new", "nested", "directory")
 
@@ -114,12 +115,12 @@ func TestDirectoriesPlugin_Execute_CreateDirectory(t *testing.T) {
 		Directories: []string{targetDir},
 	}
 
-	p, ctx := setupDirectoriesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -128,28 +129,28 @@ func TestDirectoriesPlugin_Execute_CreateDirectory(t *testing.T) {
 	info, err := os.Stat(targetDir)
 	require.NoError(t, err)
 	assert.True(t, info.IsDir())
-	assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+	assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
 	assert.Len(t, execCtx.Changes, 1)
 }
 
-func TestDirectoriesPlugin_Execute_ExistingDirectory(t *testing.T) {
+func TestPlugin_Execute_ExistingDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	targetDir := filepath.Join(tmpDir, "existing")
-	require.NoError(t, os.MkdirAll(targetDir, 0700))
+	require.NoError(t, os.MkdirAll(targetDir, 0o700))
 
 	cfg := &core.Config{
 		Directories: []string{targetDir},
 	}
 
-	p, ctx := setupDirectoriesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -157,13 +158,13 @@ func TestDirectoriesPlugin_Execute_ExistingDirectory(t *testing.T) {
 	// Verify directory still exists and permissions were updated
 	info, err := os.Stat(targetDir)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+	assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
 }
 
-func TestDirectoriesPlugin_Execute_DryRun(t *testing.T) {
+func TestPlugin_Execute_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	targetDir := filepath.Join(tmpDir, "would", "be", "created")
 
@@ -171,13 +172,13 @@ func TestDirectoriesPlugin_Execute_DryRun(t *testing.T) {
 		Directories: []string{targetDir},
 	}
 
-	p, ctx := setupDirectoriesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -188,35 +189,35 @@ func TestDirectoriesPlugin_Execute_DryRun(t *testing.T) {
 	assert.Len(t, execCtx.Changes, 1)
 }
 
-func TestDirectoriesPlugin_Execute_NonDirectoryError(t *testing.T) {
+func TestPlugin_Execute_NonDirectoryError(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a file (not a directory)
 	targetFile := filepath.Join(tmpDir, "file.txt")
-	require.NoError(t, os.WriteFile(targetFile, []byte("content"), 0644))
+	require.NoError(t, os.WriteFile(targetFile, []byte("content"), 0o644))
 
 	cfg := &core.Config{
 		Directories: []string{targetFile}, // Trying to create a directory where a file exists
 	}
 
-	p, ctx := setupDirectoriesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err := p.Execute(execCtx)
 	assert.Error(t, err, "Execute() should return error when path exists but is not a directory")
 }
 
-func TestDirectoriesPlugin_Rollback(t *testing.T) {
+func TestPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	targetDir1 := filepath.Join(tmpDir, "dir1")
 	targetDir2 := filepath.Join(tmpDir, "dir2")
@@ -225,12 +226,12 @@ func TestDirectoriesPlugin_Rollback(t *testing.T) {
 		Directories: []string{targetDir1, targetDir2},
 	}
 
-	p, ctx := setupDirectoriesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute to create directories
@@ -244,9 +245,9 @@ func TestDirectoriesPlugin_Rollback(t *testing.T) {
 
 	// Rollback
 	rollbackCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Rollback(rollbackCtx))
@@ -258,10 +259,10 @@ func TestDirectoriesPlugin_Rollback(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "Directory 2 should be removed after rollback")
 }
 
-func TestDirectoriesPlugin_Execute_MultipleDirectories(t *testing.T) {
+func TestPlugin_Execute_MultipleDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	dir1 := filepath.Join(tmpDir, "dir1")
 	dir2 := filepath.Join(tmpDir, "dir2")
@@ -271,12 +272,12 @@ func TestDirectoriesPlugin_Execute_MultipleDirectories(t *testing.T) {
 		Directories: []string{dir1, dir2, dir3},
 	}
 
-	p, ctx := setupDirectoriesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))

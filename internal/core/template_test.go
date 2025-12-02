@@ -116,7 +116,7 @@ email: test@example.com
 settings:
   theme: dark
 `
-	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to write YAML file: %v", err)
 	}
 
@@ -157,7 +157,7 @@ func TestTemplateEngine_Render_File(t *testing.T) {
 	tmpDir := t.TempDir()
 	templateFile := filepath.Join(tmpDir, "template.txt")
 	templateContent := "Hello, {{ .User }}! Your home is {{ .Home }}."
-	if err := os.WriteFile(templateFile, []byte(templateContent), 0644); err != nil {
+	if err := os.WriteFile(templateFile, []byte(templateContent), 0o644); err != nil {
 		t.Fatalf("Failed to write template file: %v", err)
 	}
 

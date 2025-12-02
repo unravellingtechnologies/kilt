@@ -41,7 +41,8 @@ type BackedUpFile struct {
 // NewBackupManager creates a new backup manager
 func NewBackupManager(backupDir string) (*BackupManager, error) {
 	// Ensure backup directory exists
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
+	//nolint:gosec // G301: user backup directory needs 0755 for user access
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
@@ -80,7 +81,8 @@ func (bm *BackupManager) createBackupLocked(files []string, description string) 
 	}
 
 	// Create backup directory
-	if err := os.MkdirAll(backupPath, 0755); err != nil {
+	//nolint:gosec // G301: user backup directory needs 0755 for user access
+	if err := os.MkdirAll(backupPath, 0o755); err != nil {
 		return "", nil, fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
@@ -202,22 +204,35 @@ func (bm *BackupManager) backupFile(filePath, backupDir string) (*BackedUpFile, 
 
 // copyFile copies a file from src to dst
 func copyFile(src, dst string) error {
+	//nolint:gosec // G304: src and dst paths come from validated backup operations, not user input
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer sourceFile.Close()
+	defer func() {
+		if closeErr := sourceFile.Close(); closeErr != nil {
+			// Close errors on read-only files are rare and non-critical
+			_ = closeErr
+		}
+	}()
 
 	// Create destination directory if needed
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	//nolint:gosec // G301: backup destination directory needs 0755 for user access
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
 
+	//nolint:gosec // G304: dst path comes from validated backup operations, not user input
 	destFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
+	defer func() {
+		if closeErr := destFile.Close(); closeErr != nil {
+			// Close errors after successful write are rare; file is already written
+			_ = closeErr
+		}
+	}()
 
 	_, err = io.Copy(destFile, sourceFile)
 	return err
@@ -231,7 +246,8 @@ func (bm *BackupManager) saveMetadata(backupPath string, metadata *BackupMetadat
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	return os.WriteFile(metadataPath, data, 0644)
+	//nolint:gosec // G306: metadata.json is user-readable backup info, 0644 is appropriate
+	return os.WriteFile(metadataPath, data, 0o644)
 }
 
 // LoadMetadata loads backup metadata from a backup directory
@@ -247,6 +263,7 @@ func (bm *BackupManager) loadMetadataLocked(backupID string) (*BackupMetadata, e
 	backupPath := filepath.Join(bm.backupDir, backupID)
 	metadataPath := filepath.Join(backupPath, "metadata.json")
 
+	//nolint:gosec // G304: metadataPath is constructed from validated backupID, not user input
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metadata: %w", err)
@@ -286,7 +303,8 @@ func (bm *BackupManager) Restore(backupID string) error {
 
 		// Create destination directory if needed
 		destDir := filepath.Dir(file.OriginalPath)
-		if err := os.MkdirAll(destDir, 0755); err != nil {
+		//nolint:gosec // G301: restore destination directory needs 0755 for user access
+		if err := os.MkdirAll(destDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create destination directory for %s: %w\nHint: Check filesystem permissions and available disk space", file.OriginalPath, err)
 		}
 

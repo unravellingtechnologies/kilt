@@ -29,8 +29,8 @@ type StateManager interface {
 	// Run-once task management
 	IsTaskCompleted(taskID string) bool
 	MarkTaskCompleted(taskID string, record interface{}) error // Use interface{} to avoid circular dependency
-	MarkTaskFailed(taskID string, record interface{}) error      // Mark task as failed (allows retry, saves failure info)
-	GetRunOnceRecord(taskID string) (interface{}, bool)       // Returns RunOnceRecord-like struct
+	MarkTaskFailed(taskID string, record interface{}) error    // Mark task as failed (allows retry, saves failure info)
+	GetRunOnceRecord(taskID string) (interface{}, bool)        // Returns RunOnceRecord-like struct
 
 	// File state management
 	GetFileChecksum(targetPath string) (string, bool)
@@ -87,21 +87,21 @@ type TemplateEngine interface {
 	RegisterOPFunction(fn func(string) (string, error))
 }
 
-// PluginContext provides shared state to plugins during initialization
-type PluginContext struct {
-	Config       Config
-	State        StateManager
-	Backup       BackupManager
-	Template     TemplateEngine
-	Logger       Logger
-	DryRun       bool
-	WorkDir      string
-	HomeDir      string
+// Context provides shared state to plugins during initialization
+type Context struct {
+	Config   Config
+	State    StateManager
+	Backup   BackupManager
+	Template TemplateEngine
+	Logger   Logger
+	DryRun   bool
+	WorkDir  string
+	HomeDir  string
 }
 
 // ExecutionContext provides runtime context during plugin execution
 type ExecutionContext struct {
-	*PluginContext
+	*Context
 	Changes   []Change
 	Errors    []error
 	StartTime time.Time
@@ -124,4 +124,3 @@ func (ctx *ExecutionContext) AddError(err error) {
 func (ctx *ExecutionContext) HasErrors() bool {
 	return len(ctx.Errors) > 0
 }
-

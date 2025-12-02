@@ -21,21 +21,21 @@ var (
 	ErrMissingDependency = errors.New("missing dependency")
 )
 
-// PluginRegistry manages plugin registration and execution order
-type PluginRegistry struct {
+// Registry manages plugin registration and execution order
+type Registry struct {
 	plugins map[string]Plugin
 	mu      sync.RWMutex
 }
 
 // NewRegistry creates a new plugin registry
-func NewRegistry() *PluginRegistry {
-	return &PluginRegistry{
+func NewRegistry() *Registry {
+	return &Registry{
 		plugins: make(map[string]Plugin),
 	}
 }
 
 // Register registers a plugin in the registry
-func (r *PluginRegistry) Register(p Plugin) error {
+func (r *Registry) Register(p Plugin) error {
 	if p == nil {
 		return errors.New("cannot register nil plugin")
 	}
@@ -68,7 +68,7 @@ func (r *PluginRegistry) Register(p Plugin) error {
 }
 
 // Unregister removes a plugin from the registry
-func (r *PluginRegistry) Unregister(name string) error {
+func (r *Registry) Unregister(name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -90,7 +90,7 @@ func (r *PluginRegistry) Unregister(name string) error {
 }
 
 // Get retrieves a plugin by name
-func (r *PluginRegistry) Get(name string) (Plugin, error) {
+func (r *Registry) Get(name string) (Plugin, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -103,7 +103,7 @@ func (r *PluginRegistry) Get(name string) (Plugin, error) {
 }
 
 // List returns all registered plugin names
-func (r *PluginRegistry) List() []string {
+func (r *Registry) List() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -117,7 +117,7 @@ func (r *PluginRegistry) List() []string {
 }
 
 // Count returns the number of registered plugins
-func (r *PluginRegistry) Count() int {
+func (r *Registry) Count() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -126,7 +126,7 @@ func (r *PluginRegistry) Count() int {
 
 // GetOrderedPlugins returns plugins sorted by execution phase and dependencies
 // Plugins are grouped by phase and topologically sorted within each phase
-func (r *PluginRegistry) GetOrderedPlugins() ([]Plugin, error) {
+func (r *Registry) GetOrderedPlugins() ([]Plugin, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -174,7 +174,7 @@ func (r *PluginRegistry) GetOrderedPlugins() ([]Plugin, error) {
 }
 
 // validateDependencies checks that all plugin dependencies exist
-func (r *PluginRegistry) validateDependencies() error {
+func (r *Registry) validateDependencies() error {
 	for _, plugin := range r.plugins {
 		for _, dep := range plugin.Dependencies() {
 			if _, exists := r.plugins[dep]; !exists {
@@ -186,7 +186,7 @@ func (r *PluginRegistry) validateDependencies() error {
 }
 
 // topologicalSort sorts plugins based on their dependencies using Kahn's algorithm
-func (r *PluginRegistry) topologicalSort(plugins []Plugin) ([]Plugin, error) {
+func (r *Registry) topologicalSort(plugins []Plugin) ([]Plugin, error) {
 	if len(plugins) == 0 {
 		return []Plugin{}, nil
 	}
@@ -240,11 +240,11 @@ func (r *PluginRegistry) topologicalSort(plugins []Plugin) ([]Plugin, error) {
 		sorted = append(sorted, nameToPlugin[current])
 		processed++
 
-		// Reduce in-degree of neighbors
-		for _, neighbor := range graph[current] {
-			inDegree[neighbor]--
-			if inDegree[neighbor] == 0 {
-				queue = append(queue, neighbor)
+		// Reduce in-degree of neighbours
+		for _, neighbour := range graph[current] {
+			inDegree[neighbour]--
+			if inDegree[neighbour] == 0 {
+				queue = append(queue, neighbour)
 			}
 		}
 	}
@@ -256,4 +256,3 @@ func (r *PluginRegistry) topologicalSort(plugins []Plugin) ([]Plugin, error) {
 
 	return sorted, nil
 }
-

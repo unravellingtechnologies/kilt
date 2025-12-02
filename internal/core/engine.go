@@ -21,7 +21,7 @@ type Engine struct {
 	state         *StateManager
 	backup        *BackupManager
 	template      *TemplateEngine
-	registry      *plugin.PluginRegistry
+	registry      *plugin.Registry
 	logger        *logger.Logger
 	dryRun        bool
 	verbose       bool
@@ -43,7 +43,7 @@ type ExecutionResult struct {
 }
 
 // NewEngine creates a new engine instance
-func NewEngine(cfg *Config, registry *plugin.PluginRegistry) (*Engine, error) {
+func NewEngine(cfg *Config, registry *plugin.Registry) (*Engine, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -62,7 +62,7 @@ func NewEngine(cfg *Config, registry *plugin.PluginRegistry) (*Engine, error) {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	// Initialize state manager
+	// Initialise state manager
 	stateDir, err := GetStateDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get state directory: %w", err)
@@ -73,7 +73,7 @@ func NewEngine(cfg *Config, registry *plugin.PluginRegistry) (*Engine, error) {
 		return nil, fmt.Errorf("failed to create state manager: %w", err)
 	}
 
-	// Initialize backup manager
+	// Initialise backup manager
 	backupDir, err := GetBackupDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get backup directory: %w", err)
@@ -84,7 +84,7 @@ func NewEngine(cfg *Config, registry *plugin.PluginRegistry) (*Engine, error) {
 		return nil, fmt.Errorf("failed to create backup manager: %w", err)
 	}
 
-	// Initialize template engine
+	// Initialise template engine
 	template := NewTemplateEngine()
 
 	// Load custom data if specified
@@ -181,7 +181,8 @@ func (e *Engine) checkFileSystemPermissions() error {
 		return err
 	}
 
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	//nolint:gosec // G301: user state directory needs 0755 for user access
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("cannot create state directory: %w", err)
 	}
 
@@ -191,7 +192,8 @@ func (e *Engine) checkFileSystemPermissions() error {
 		return err
 	}
 
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
+	//nolint:gosec // G301: user backup directory needs 0755 for user access
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return fmt.Errorf("cannot create backup directory: %w", err)
 	}
 
@@ -199,6 +201,8 @@ func (e *Engine) checkFileSystemPermissions() error {
 }
 
 // Execute runs the full execution pipeline
+//
+//nolint:gocyclo // Main orchestration loop - complexity is inherent to coordinating plugins, state, and error handling
 func (e *Engine) Execute() (*ExecutionResult, error) {
 	startTime := time.Now()
 	result := &ExecutionResult{
@@ -228,7 +232,7 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 	}
 
 	// Create plugin context
-	pluginCtx := &plugin.PluginContext{
+	pluginCtx := &plugin.Context{
 		Config:   e.config,
 		State:    e.state,
 		Backup:   e.backup,
@@ -238,17 +242,17 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 		HomeDir:  e.homeDir,
 	}
 
-	// Initialize plugins
-	if err := e.initializePlugins(orderedPlugins, pluginCtx); err != nil {
+	// Initialise plugins
+	if err := e.initialisePlugins(orderedPlugins, pluginCtx); err != nil {
 		return nil, fmt.Errorf("plugin initialization failed: %w", err)
 	}
 
 	// Execute plugins
 	executionCtx := &plugin.ExecutionContext{
-		PluginContext: pluginCtx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
-		StartTime:     startTime,
+		Context:   pluginCtx,
+		Changes:   make([]plugin.Change, 0),
+		Errors:    make([]error, 0),
+		StartTime: startTime,
 	}
 
 	pluginsRun := 0
@@ -321,11 +325,11 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 	return result, nil
 }
 
-// initializePlugins initializes all plugins with the plugin context
-func (e *Engine) initializePlugins(plugins []plugin.Plugin, ctx *plugin.PluginContext) error {
+// initialisePlugins initialises all plugins with the plugin context
+func (e *Engine) initialisePlugins(plugins []plugin.Plugin, ctx *plugin.Context) error {
 	for _, p := range plugins {
-		if err := p.Initialize(ctx); err != nil {
-			return fmt.Errorf("failed to initialize plugin %s: %w", p.Name(), err)
+		if err := p.Initialise(ctx); err != nil {
+			return fmt.Errorf("failed to initialise plugin %s: %w", p.Name(), err)
 		}
 	}
 	return nil
@@ -338,7 +342,7 @@ func (e *Engine) rollback() error {
 	}
 
 	// Create execution context for rollback
-	pluginCtx := &plugin.PluginContext{
+	pluginCtx := &plugin.Context{
 		Config:   e.config,
 		State:    e.state,
 		Backup:   e.backup,
@@ -349,10 +353,10 @@ func (e *Engine) rollback() error {
 	}
 
 	executionCtx := &plugin.ExecutionContext{
-		PluginContext: pluginCtx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
-		StartTime:     time.Now(),
+		Context:   pluginCtx,
+		Changes:   make([]plugin.Change, 0),
+		Errors:    make([]error, 0),
+		StartTime: time.Now(),
 	}
 
 	// Rollback in reverse order

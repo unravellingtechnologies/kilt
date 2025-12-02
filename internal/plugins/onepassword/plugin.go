@@ -15,59 +15,59 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// OnePasswordPlugin handles 1Password CLI integration for secret injection
-type OnePasswordPlugin struct {
-	ctx          *plugin.PluginContext
-	opPath       string
-	account      string
-	vault        string
-	cacheEnabled bool
-	cacheTTL     time.Duration
-	cache        map[string]cacheEntry
-	cacheMu      sync.RWMutex
+// Plugin handles 1Password CLI integration for secret injection
+type Plugin struct {
+	ctx           *plugin.Context
+	opPath        string
+	account       string
+	vault         string
+	cacheEnabled  bool
+	cacheTTL      time.Duration
+	cache         map[string]cacheEntry
+	cacheMu       sync.RWMutex
 	authenticated bool
 }
 
 // cacheEntry represents a cached secret with expiration
 type cacheEntry struct {
-	value      string
-	expiresAt  time.Time
+	value     string
+	expiresAt time.Time
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&OnePasswordPlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register onepassword plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *OnePasswordPlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "onepassword"
 }
 
 // Version returns the plugin version
-func (p *OnePasswordPlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *OnePasswordPlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "1Password CLI integration for secret injection in templates"
 }
 
 // Dependencies returns plugin dependencies
-func (p *OnePasswordPlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *OnePasswordPlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	// This plugin runs early to register template function before templates are rendered
 	return plugin.PhasePreSync
 }
 
-// Initialize initializes the plugin with context
-func (p *OnePasswordPlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.account = ""
 	p.vault = ""
@@ -134,9 +134,9 @@ func (p *OnePasswordPlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *OnePasswordPlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 
 	// If op CLI is not installed, that's okay - plugin will return errors when used
@@ -153,9 +153,9 @@ func (p *OnePasswordPlugin) Validate() error {
 }
 
 // Execute executes the plugin logic
-// For 1Password plugin, most work is done during Initialize (registering template function)
+// For 1Password plugin, most work is done during Initialise (registering template function)
 // Execute can be used to verify authentication or perform any runtime checks
-func (p *OnePasswordPlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	// Verify authentication status if op is available
 	if p.opPath != "" && !p.authenticated {
 		if err := p.checkAuthentication(); err != nil {
@@ -176,7 +176,7 @@ func (p *OnePasswordPlugin) Execute(ctx *plugin.ExecutionContext) error {
 
 // Rollback rolls back plugin changes
 // For 1Password plugin, there's nothing to rollback (no state changes)
-func (p *OnePasswordPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// Clear cache on rollback
 	p.cacheMu.Lock()
 	defer p.cacheMu.Unlock()
@@ -190,7 +190,7 @@ func (p *OnePasswordPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 }
 
 // findOP finds the 1Password CLI installation
-func (p *OnePasswordPlugin) findOP() (string, error) {
+func (p *Plugin) findOP() (string, error) {
 	// First, try to find op in PATH
 	// LookPath already ensures the file is present and executable
 	if opPath, err := exec.LookPath("op"); err == nil {
@@ -212,7 +212,7 @@ func (p *OnePasswordPlugin) findOP() (string, error) {
 		}
 		// Ensure file exists, is regular, and has execute permissions
 		mode := info.Mode()
-		if mode.IsRegular() && mode&0111 != 0 {
+		if mode.IsRegular() && mode&0o111 != 0 {
 			return path, nil
 		}
 	}
@@ -221,12 +221,13 @@ func (p *OnePasswordPlugin) findOP() (string, error) {
 }
 
 // checkAuthentication checks if 1Password CLI is authenticated
-func (p *OnePasswordPlugin) checkAuthentication() error {
+func (p *Plugin) checkAuthentication() error {
 	if p.opPath == "" {
 		return fmt.Errorf("1Password CLI not found")
 	}
 
 	// Run `op account list` to check authentication
+	//nolint:gosec // G204: p.opPath is validated config value, command args are hardcoded
 	cmd := exec.Command(p.opPath, "account", "list")
 	cmd.Env = os.Environ()
 
@@ -245,7 +246,7 @@ func (p *OnePasswordPlugin) checkAuthentication() error {
 
 // getSecret retrieves a secret from 1Password
 // This is the function registered with the template engine
-func (p *OnePasswordPlugin) getSecret(path string) (string, error) {
+func (p *Plugin) getSecret(path string) (string, error) {
 	if p.opPath == "" {
 		return "", fmt.Errorf("1Password CLI (op) is not installed. Install it from https://1password.com/downloads/command-line/")
 	}
@@ -279,7 +280,7 @@ func (p *OnePasswordPlugin) getSecret(path string) (string, error) {
 
 	// Build op command
 	args := []string{"read", path}
-	
+
 	// Add account flag if specified
 	if p.account != "" {
 		args = append(args, "--account", p.account)
@@ -294,6 +295,7 @@ func (p *OnePasswordPlugin) getSecret(path string) (string, error) {
 	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	//nolint:gosec // G204: p.opPath is validated config value, args come from validated config
 	cmd := exec.CommandContext(cmdCtx, p.opPath, args...)
 	cmd.Env = os.Environ()
 
@@ -348,7 +350,7 @@ func (p *OnePasswordPlugin) getSecret(path string) (string, error) {
 }
 
 // cacheSecret caches a secret with expiration
-func (p *OnePasswordPlugin) cacheSecret(path, value string) {
+func (p *Plugin) cacheSecret(path, value string) {
 	p.cacheMu.Lock()
 	defer p.cacheMu.Unlock()
 
@@ -357,4 +359,3 @@ func (p *OnePasswordPlugin) cacheSecret(path, value string) {
 		expiresAt: time.Now().Add(p.cacheTTL),
 	}
 }
-

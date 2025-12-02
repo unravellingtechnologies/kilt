@@ -5,6 +5,7 @@ package runonce
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,48 +17,48 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// RunOncePlugin executes bootstrap scripts exactly once per machine
-type RunOncePlugin struct {
-	ctx            *plugin.PluginContext
+// Plugin executes bootstrap scripts exactly once per machine
+type Plugin struct {
+	ctx            *plugin.Context
 	defaultTimeout time.Duration
 	forceRun       bool
-	retryOnFailure bool // If true, mark failed tasks as completed (prevents retry). If false, allow retry.
+	retryOnFailure bool     // If true, mark failed tasks as completed (prevents retry). If false, allow retry.
 	executedTasks  []string // Track tasks executed in this run for rollback
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&RunOncePlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register runonce plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *RunOncePlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "runonce"
 }
 
 // Version returns the plugin version
-func (p *RunOncePlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *RunOncePlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "Execute bootstrap scripts exactly once per machine"
 }
 
 // Dependencies returns plugin dependencies
-func (p *RunOncePlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *RunOncePlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhaseRunOnce
 }
 
-// Initialize initializes the plugin with context
-func (p *RunOncePlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.defaultTimeout = 5 * time.Minute // Default 5 minute timeout
 	p.forceRun = false
@@ -93,9 +94,9 @@ func (p *RunOncePlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *RunOncePlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 
 	cfg, ok := p.ctx.Config.(*core.Config)
@@ -132,7 +133,7 @@ func (p *RunOncePlugin) Validate() error {
 }
 
 // Execute executes the plugin logic
-func (p *RunOncePlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	cfg, ok := p.ctx.Config.(*core.Config)
 	if !ok {
 		return fmt.Errorf("invalid config type")
@@ -152,7 +153,7 @@ func (p *RunOncePlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // executeScript executes a single script
-func (p *RunOncePlugin) executeScript(ctx *plugin.ExecutionContext, scriptPath string, index int) error {
+func (p *Plugin) executeScript(ctx *plugin.ExecutionContext, scriptPath string, _ int) error {
 	// Resolve script path
 	fullScriptPath := scriptPath
 	if !filepath.IsAbs(scriptPath) {
@@ -267,7 +268,7 @@ func (p *RunOncePlugin) executeScript(ctx *plugin.ExecutionContext, scriptPath s
 }
 
 // runScript executes a script with timeout protection
-func (p *RunOncePlugin) runScript(scriptPath string, timeout time.Duration) (string, int, error) {
+func (p *Plugin) runScript(scriptPath string, timeout time.Duration) (string, int, error) {
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -276,6 +277,7 @@ func (p *RunOncePlugin) runScript(scriptPath string, timeout time.Duration) (str
 	shell, args := p.determineShell(scriptPath)
 
 	// Create command
+	//nolint:gosec // G204: shell and args come from determineShell which validates scriptPath from config
 	cmd := exec.CommandContext(ctx, shell, args...)
 	cmd.Dir = filepath.Dir(scriptPath)
 
@@ -291,7 +293,8 @@ func (p *RunOncePlugin) runScript(scriptPath string, timeout time.Duration) (str
 	err := cmd.Run()
 	exitCode := 0
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
 			exitCode = exitError.ExitCode()
 		} else {
 			// Context timeout or other error
@@ -320,11 +323,17 @@ func (p *RunOncePlugin) runScript(scriptPath string, timeout time.Duration) (str
 }
 
 // determineShell determines the shell and arguments to use for executing the script
-func (p *RunOncePlugin) determineShell(scriptPath string) (string, []string) {
+func (p *Plugin) determineShell(scriptPath string) (string, []string) {
 	// Try to read shebang
+	//nolint:gosec // G304: scriptPath comes from validated config, not user input
 	file, err := os.Open(scriptPath)
 	if err == nil {
-		defer file.Close()
+		defer func() {
+			if closeErr := file.Close(); closeErr != nil {
+				// Close errors on read-only files are rare and non-critical
+				_ = closeErr
+			}
+		}()
 		shebang := make([]byte, 128) // Read first 128 bytes for shebang
 		n, _ := file.Read(shebang)
 		shebangStr := string(shebang[:n])
@@ -363,7 +372,7 @@ func (p *RunOncePlugin) determineShell(scriptPath string) (string, []string) {
 }
 
 // generateTaskID generates a unique task ID from script path
-func (p *RunOncePlugin) generateTaskID(scriptPath string) string {
+func (p *Plugin) generateTaskID(scriptPath string) string {
 	// Use absolute path for consistency
 	absPath, err := filepath.Abs(scriptPath)
 	if err != nil {
@@ -377,7 +386,7 @@ func (p *RunOncePlugin) generateTaskID(scriptPath string) string {
 }
 
 // Rollback rolls back script execution (removes state records)
-func (p *RunOncePlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// For run-once scripts, rollback means removing the execution records
 	// This allows the scripts to be re-executed on next run
 	// Note: We can't undo what the scripts did, but we can allow re-execution

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -19,36 +20,36 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func TestDotfilesPlugin_Name(t *testing.T) {
-	p := &DotfilesPlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "dotfiles", p.Name())
 }
 
-func TestDotfilesPlugin_Version(t *testing.T) {
-	p := &DotfilesPlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestDotfilesPlugin_Description(t *testing.T) {
-	p := &DotfilesPlugin{}
-	assert.Equal(t, "Symlink-based dotfile synchronization", p.Description())
+func TestPlugin_Description(t *testing.T) {
+	p := &Plugin{}
+	assert.Equal(t, "Symlink-based dotfile synchronisation", p.Description())
 }
 
-func TestDotfilesPlugin_Dependencies(t *testing.T) {
-	p := &DotfilesPlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Equal(t, []string{"alternates"}, deps)
 }
 
-func TestDotfilesPlugin_Phase(t *testing.T) {
-	p := &DotfilesPlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhaseCore, p.Phase())
 }
 
-func TestDotfilesPlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -66,7 +67,7 @@ func TestDotfilesPlugin_Initialize(t *testing.T) {
 		Plugins:      map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -77,8 +78,8 @@ func TestDotfilesPlugin_Initialize(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	err = p.Initialize(ctx)
+	p := &Plugin{}
+	err = p.Initialise(ctx)
 	require.NoError(t, err)
 
 	assert.NotNil(t, p.ctx)
@@ -86,10 +87,10 @@ func TestDotfilesPlugin_Initialize(t *testing.T) {
 	assert.NotNil(t, p.linkedFiles)
 }
 
-func TestDotfilesPlugin_Initialize_DefaultPath(t *testing.T) {
+func TestPlugin_Initialise_DefaultPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -107,7 +108,7 @@ func TestDotfilesPlugin_Initialize_DefaultPath(t *testing.T) {
 		Plugins:      map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -118,8 +119,8 @@ func TestDotfilesPlugin_Initialize_DefaultPath(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	err = p.Initialize(ctx)
+	p := &Plugin{}
+	err = p.Initialise(ctx)
 	require.NoError(t, err)
 
 	expectedPath := core.DefaultDotfilesPath()
@@ -127,10 +128,10 @@ func TestDotfilesPlugin_Initialize_DefaultPath(t *testing.T) {
 	assert.Equal(t, expandedPath, p.dotfilesPath)
 }
 
-func TestDotfilesPlugin_Validate_Success(t *testing.T) {
+func TestPlugin_Validate_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -148,7 +149,7 @@ func TestDotfilesPlugin_Validate_Success(t *testing.T) {
 		Plugins:      map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -159,13 +160,13 @@ func TestDotfilesPlugin_Validate_Success(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 	err = p.Validate()
 	assert.NoError(t, err)
 }
 
-func TestDotfilesPlugin_Validate_NotFound(t *testing.T) {
+func TestPlugin_Validate_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	dotfilesPath := filepath.Join(tmpDir, "nonexistent")
 
@@ -185,7 +186,7 @@ func TestDotfilesPlugin_Validate_NotFound(t *testing.T) {
 		Plugins:      map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -196,25 +197,25 @@ func TestDotfilesPlugin_Validate_NotFound(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 	err = p.Validate()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "dotfiles repository not found")
 }
 
-func TestDotfilesPlugin_Execute_DirectoryMode(t *testing.T) {
+func TestPlugin_Execute_DirectoryMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	zshDir := filepath.Join(dotfilesPath, "zsh")
-	require.NoError(t, os.MkdirAll(zshDir, 0755))
+	require.NoError(t, os.MkdirAll(zshDir, 0o755))
 
 	// Create files in zsh directory
 	zshrcFile := filepath.Join(zshDir, "zshrc")
-	require.NoError(t, os.WriteFile(zshrcFile, []byte("# zsh config"), 0644))
+	require.NoError(t, os.WriteFile(zshrcFile, []byte("# zsh config"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".zshrc")
 
@@ -236,7 +237,7 @@ func TestDotfilesPlugin_Execute_DirectoryMode(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -247,13 +248,13 @@ func TestDotfilesPlugin_Execute_DirectoryMode(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -278,17 +279,17 @@ func TestDotfilesPlugin_Execute_DirectoryMode(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestDotfilesPlugin_Execute_DirectoryMode_DryRun(t *testing.T) {
+func TestPlugin_Execute_DirectoryMode_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	zshDir := filepath.Join(dotfilesPath, "zsh")
-	require.NoError(t, os.MkdirAll(zshDir, 0755))
+	require.NoError(t, os.MkdirAll(zshDir, 0o755))
 
 	zshrcFile := filepath.Join(zshDir, "zshrc")
-	require.NoError(t, os.WriteFile(zshrcFile, []byte("# zsh config"), 0644))
+	require.NoError(t, os.WriteFile(zshrcFile, []byte("# zsh config"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".zshrc")
 
@@ -310,7 +311,7 @@ func TestDotfilesPlugin_Execute_DirectoryMode_DryRun(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -321,13 +322,13 @@ func TestDotfilesPlugin_Execute_DirectoryMode_DryRun(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -341,17 +342,17 @@ func TestDotfilesPlugin_Execute_DirectoryMode_DryRun(t *testing.T) {
 	assert.Greater(t, len(execCtx.Changes), 0)
 }
 
-func TestDotfilesPlugin_Execute_ExplicitMapping(t *testing.T) {
+func TestPlugin_Execute_ExplicitMapping(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	sourceFile := filepath.Join(dotfilesPath, "ssh", "config")
-	require.NoError(t, os.MkdirAll(filepath.Dir(sourceFile), 0755))
-	require.NoError(t, os.WriteFile(sourceFile, []byte("Host *\n"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Dir(sourceFile), 0o755))
+	require.NoError(t, os.WriteFile(sourceFile, []byte("Host *\n"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".ssh", "config")
 
@@ -376,7 +377,7 @@ func TestDotfilesPlugin_Execute_ExplicitMapping(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -387,13 +388,13 @@ func TestDotfilesPlugin_Execute_ExplicitMapping(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -407,18 +408,18 @@ func TestDotfilesPlugin_Execute_ExplicitMapping(t *testing.T) {
 	assert.Equal(t, absSource, absLink)
 }
 
-func TestDotfilesPlugin_Execute_TemplateFile(t *testing.T) {
+func TestPlugin_Execute_TemplateFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	sourceFile := filepath.Join(dotfilesPath, "config", "template.txt")
-	require.NoError(t, os.MkdirAll(filepath.Dir(sourceFile), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(sourceFile), 0o755))
 	templateContent := "Hello {{ .User }}, your home is {{ .Home }}"
-	require.NoError(t, os.WriteFile(sourceFile, []byte(templateContent), 0644))
+	require.NoError(t, os.WriteFile(sourceFile, []byte(templateContent), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".config", "rendered.txt")
 
@@ -444,7 +445,7 @@ func TestDotfilesPlugin_Execute_TemplateFile(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -455,13 +456,13 @@ func TestDotfilesPlugin_Execute_TemplateFile(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -487,16 +488,16 @@ func TestDotfilesPlugin_Execute_TemplateFile(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestDotfilesPlugin_Execute_TemplateFile_DryRun(t *testing.T) {
+func TestPlugin_Execute_TemplateFile_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	sourceFile := filepath.Join(dotfilesPath, "template.txt")
-	require.NoError(t, os.WriteFile(sourceFile, []byte("Template content"), 0644))
+	require.NoError(t, os.WriteFile(sourceFile, []byte("Template content"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".template.txt")
 
@@ -522,7 +523,7 @@ func TestDotfilesPlugin_Execute_TemplateFile_DryRun(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -533,13 +534,13 @@ func TestDotfilesPlugin_Execute_TemplateFile_DryRun(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -550,13 +551,13 @@ func TestDotfilesPlugin_Execute_TemplateFile_DryRun(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestDotfilesPlugin_Execute_SourceNotFound(t *testing.T) {
+func TestPlugin_Execute_SourceNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -579,7 +580,7 @@ func TestDotfilesPlugin_Execute_SourceNotFound(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -590,13 +591,13 @@ func TestDotfilesPlugin_Execute_SourceNotFound(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -604,13 +605,13 @@ func TestDotfilesPlugin_Execute_SourceNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "source file not found")
 }
 
-func TestDotfilesPlugin_Execute_InvalidEntry(t *testing.T) {
+func TestPlugin_Execute_InvalidEntry(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -630,7 +631,7 @@ func TestDotfilesPlugin_Execute_InvalidEntry(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -641,13 +642,13 @@ func TestDotfilesPlugin_Execute_InvalidEntry(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -655,20 +656,20 @@ func TestDotfilesPlugin_Execute_InvalidEntry(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid dotfile entry")
 }
 
-func TestDotfilesPlugin_Execute_ExistingFileBackup(t *testing.T) {
+func TestPlugin_Execute_ExistingFileBackup(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	sourceFile := filepath.Join(dotfilesPath, "test.txt")
-	require.NoError(t, os.WriteFile(sourceFile, []byte("new content"), 0644))
+	require.NoError(t, os.WriteFile(sourceFile, []byte("new content"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".test.txt")
 	existingContent := []byte("existing content")
-	require.NoError(t, os.WriteFile(targetPath, existingContent, 0644))
+	require.NoError(t, os.WriteFile(targetPath, existingContent, 0o644))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -691,7 +692,7 @@ func TestDotfilesPlugin_Execute_ExistingFileBackup(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -702,13 +703,13 @@ func TestDotfilesPlugin_Execute_ExistingFileBackup(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -727,16 +728,16 @@ func TestDotfilesPlugin_Execute_ExistingFileBackup(t *testing.T) {
 	assert.Greater(t, len(backups), 0)
 }
 
-func TestDotfilesPlugin_Execute_ExistingSymlink(t *testing.T) {
+func TestPlugin_Execute_ExistingSymlink(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	sourceFile := filepath.Join(dotfilesPath, "test.txt")
-	require.NoError(t, os.WriteFile(sourceFile, []byte("content"), 0644))
+	require.NoError(t, os.WriteFile(sourceFile, []byte("content"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".test.txt")
 
@@ -765,7 +766,7 @@ func TestDotfilesPlugin_Execute_ExistingSymlink(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -776,13 +777,13 @@ func TestDotfilesPlugin_Execute_ExistingSymlink(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)
@@ -798,16 +799,16 @@ func TestDotfilesPlugin_Execute_ExistingSymlink(t *testing.T) {
 	assert.Equal(t, 0, len(execCtx.Changes))
 }
 
-func TestDotfilesPlugin_Rollback(t *testing.T) {
+func TestPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	sourceFile := filepath.Join(dotfilesPath, "test.txt")
-	require.NoError(t, os.WriteFile(sourceFile, []byte("content"), 0644))
+	require.NoError(t, os.WriteFile(sourceFile, []byte("content"), 0o644))
 
 	targetPath := filepath.Join(homeDir, ".test.txt")
 
@@ -832,7 +833,7 @@ func TestDotfilesPlugin_Rollback(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -843,13 +844,13 @@ func TestDotfilesPlugin_Rollback(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute to create symlink
@@ -872,13 +873,13 @@ func TestDotfilesPlugin_Rollback(t *testing.T) {
 	assert.Equal(t, 0, len(p.linkedFiles))
 }
 
-func TestDotfilesPlugin_DetermineTargetPath(t *testing.T) {
+func TestPlugin_DetermineTargetPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -895,7 +896,7 @@ func TestDotfilesPlugin_DetermineTargetPath(t *testing.T) {
 		Plugins:      map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -906,8 +907,8 @@ func TestDotfilesPlugin_DetermineTargetPath(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	tests := []struct {
 		name     string
@@ -949,8 +950,8 @@ func TestDotfilesPlugin_DetermineTargetPath(t *testing.T) {
 	}
 }
 
-func TestDotfilesPlugin_GetFileMode(t *testing.T) {
-	p := &DotfilesPlugin{}
+func TestPlugin_GetFileMode(t *testing.T) {
+	p := &Plugin{}
 
 	tests := []struct {
 		name     string
@@ -960,22 +961,22 @@ func TestDotfilesPlugin_GetFileMode(t *testing.T) {
 		{
 			name:     "valid octal mode",
 			modeStr:  "0644",
-			expected: 0644,
+			expected: 0o644,
 		},
 		{
 			name:     "empty string defaults",
 			modeStr:  "",
-			expected: 0644,
+			expected: 0o644,
 		},
 		{
 			name:     "invalid mode defaults",
 			modeStr:  "invalid",
-			expected: 0644,
+			expected: 0o644,
 		},
 		{
 			name:     "restrictive mode",
 			modeStr:  "0600",
-			expected: 0600,
+			expected: 0o600,
 		},
 	}
 
@@ -987,13 +988,13 @@ func TestDotfilesPlugin_GetFileMode(t *testing.T) {
 	}
 }
 
-func TestDotfilesPlugin_ProcessDirectory_MissingDirectory(t *testing.T) {
+func TestPlugin_ProcessDirectory_MissingDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
-	require.NoError(t, os.MkdirAll(dotfilesPath, 0755))
+	require.NoError(t, os.MkdirAll(dotfilesPath, 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -1010,7 +1011,7 @@ func TestDotfilesPlugin_ProcessDirectory_MissingDirectory(t *testing.T) {
 		Plugins:      map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -1021,13 +1022,13 @@ func TestDotfilesPlugin_ProcessDirectory_MissingDirectory(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Process non-existent directory
@@ -1036,19 +1037,19 @@ func TestDotfilesPlugin_ProcessDirectory_MissingDirectory(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestDotfilesPlugin_Execute_DirectoryWithNestedFiles(t *testing.T) {
+func TestPlugin_Execute_DirectoryWithNestedFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
-	require.NoError(t, os.MkdirAll(homeDir, 0755))
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 
 	dotfilesPath := filepath.Join(tmpDir, ".dotfiles")
 	configDir := filepath.Join(dotfilesPath, "config")
-	require.NoError(t, os.MkdirAll(configDir, 0755))
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
 
 	// Create nested structure
 	nvimDir := filepath.Join(configDir, "nvim")
-	require.NoError(t, os.MkdirAll(nvimDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(nvimDir, "init.vim"), []byte("nvim config"), 0644))
+	require.NoError(t, os.MkdirAll(nvimDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(nvimDir, "init.vim"), []byte("nvim config"), 0o644))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -1068,7 +1069,7 @@ func TestDotfilesPlugin_Execute_DirectoryWithNestedFiles(t *testing.T) {
 		Plugins: map[string]interface{}{},
 	}
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -1079,13 +1080,13 @@ func TestDotfilesPlugin_Execute_DirectoryWithNestedFiles(t *testing.T) {
 		HomeDir:  homeDir,
 	}
 
-	p := &DotfilesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err = p.Execute(execCtx)

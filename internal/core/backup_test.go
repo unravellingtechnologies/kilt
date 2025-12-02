@@ -53,10 +53,10 @@ func TestCreateBackup(t *testing.T) {
 	testContent1 := "Content of file 1"
 	testContent2 := "Content of file 2"
 
-	if err := os.WriteFile(testFile1, []byte(testContent1), 0644); err != nil {
+	if err := os.WriteFile(testFile1, []byte(testContent1), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	if err := os.WriteFile(testFile2, []byte(testContent2), 0755); err != nil {
+	if err := os.WriteFile(testFile2, []byte(testContent2), 0o755); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -120,7 +120,7 @@ func TestCreateBackupWithNonExistentFile(t *testing.T) {
 	// Create one existing file and one non-existent file
 	testFile1 := filepath.Join(tmpDir, "file1.txt")
 	testContent1 := "Content of file 1"
-	if err := os.WriteFile(testFile1, []byte(testContent1), 0644); err != nil {
+	if err := os.WriteFile(testFile1, []byte(testContent1), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -164,10 +164,10 @@ func TestCreateIncrementalBackup(t *testing.T) {
 	testContent1 := "Content of file 1"
 	testContent2 := "Content of file 2"
 
-	if err := os.WriteFile(testFile1, []byte(testContent1), 0644); err != nil {
+	if err := os.WriteFile(testFile1, []byte(testContent1), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	if err := os.WriteFile(testFile2, []byte(testContent2), 0644); err != nil {
+	if err := os.WriteFile(testFile2, []byte(testContent2), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -222,7 +222,7 @@ func TestCreateIncrementalBackupNoChanges(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Content of file"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -264,7 +264,7 @@ func TestLoadMetadata(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Content of file"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -307,7 +307,7 @@ func TestRestore(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	originalContent := "Original content"
-	if err := os.WriteFile(testFile, []byte(originalContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(originalContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -320,7 +320,7 @@ func TestRestore(t *testing.T) {
 
 	// Modify file
 	modifiedContent := "Modified content"
-	if err := os.WriteFile(testFile, []byte(modifiedContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(modifiedContent), 0o644); err != nil {
 		t.Fatalf("Failed to modify test file: %v", err)
 	}
 
@@ -356,17 +356,15 @@ func TestListBackups(t *testing.T) {
 	// Create multiple backups with small delay
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Content"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	backupIDs := make([]string, 0)
 	for i := 0; i < 3; i++ {
-		backupID, _, err := bm.CreateBackup([]string{testFile}, "Backup")
+		_, _, err := bm.CreateBackup([]string{testFile}, "Backup")
 		if err != nil {
 			t.Fatalf("Failed to create backup: %v", err)
 		}
-		backupIDs = append(backupIDs, backupID)
 		time.Sleep(10 * time.Millisecond) // Small delay to ensure different timestamps
 	}
 
@@ -404,7 +402,7 @@ func TestGetBackupSize(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "This is test content for size calculation"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -448,7 +446,7 @@ func TestGetTotalBackupSize(t *testing.T) {
 	// Create multiple backups
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Test content"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -485,7 +483,7 @@ func TestDeleteBackup(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Content"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -529,7 +527,7 @@ func TestCleanupOldBackups(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Content"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -585,7 +583,7 @@ func TestCleanupOldBackupsWithFewerBackups(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tmpDir, "file.txt")
 	testContent := "Content"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -611,4 +609,3 @@ func TestCleanupOldBackupsWithFewerBackups(t *testing.T) {
 		t.Errorf("Expected 2 backups after cleanup (none should be deleted), got %d", len(backups))
 	}
 }
-

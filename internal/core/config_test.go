@@ -48,7 +48,7 @@ plugins:
   test:
     key: "value"
 `
-	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o644))
 
 	cfg, err := LoadConfig(configPath)
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 	invalidContent := `
 invalid: yaml: content: [
 `
-	require.NoError(t, os.WriteFile(configPath, []byte(invalidContent), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte(invalidContent), 0o644))
 
 	_, err := LoadConfig(configPath)
 	assert.Error(t, err, "LoadConfig() should return error for invalid YAML")
@@ -98,10 +98,10 @@ func TestFindConfigFile(t *testing.T) {
 
 	// Create .kilt directory
 	kiltDir := filepath.Join(tmpDir, ".kilt")
-	require.NoError(t, os.MkdirAll(kiltDir, 0755))
+	require.NoError(t, os.MkdirAll(kiltDir, 0o755))
 
 	configPath := filepath.Join(kiltDir, "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0o644))
 
 	found, err := FindConfigFile()
 	require.NoError(t, err)
@@ -133,10 +133,10 @@ func TestFindConfigFile_HomeDir(t *testing.T) {
 
 	// Create .kilt directory and config file under fake home
 	kiltDir := filepath.Join(fakeHome, ".kilt")
-	require.NoError(t, os.MkdirAll(kiltDir, 0755))
+	require.NoError(t, os.MkdirAll(kiltDir, 0o755))
 
 	configPath := filepath.Join(kiltDir, "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte("# test config"), 0o644))
 
 	// Change to a separate temporary working directory (not the fake home)
 	tmpDir := t.TempDir()
@@ -565,7 +565,7 @@ dotfiles:
   - git
   - vim
 `
-	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o644))
 
 	cfg, err := LoadConfig(configPath)
 	require.NoError(t, err)
@@ -582,7 +582,7 @@ dotfiles:
     mode: "0600"
     template: true
 `
-	require.NoError(t, os.WriteFile(configPath2, []byte(configContent2), 0644))
+	require.NoError(t, os.WriteFile(configPath2, []byte(configContent2), 0o644))
 
 	cfg2, err := LoadConfig(configPath2)
 	require.NoError(t, err)

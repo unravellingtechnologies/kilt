@@ -1,5 +1,5 @@
 // Package dotfiles provides the dotfiles plugin for Kilt.
-// It handles symlink-based synchronization of dotfiles from the dotfiles repository to the home directory.
+// It handles symlink-based synchronisation of dotfiles from the dotfiles repository to the home directory.
 package dotfiles
 
 import (
@@ -14,9 +14,9 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// DotfilesPlugin handles symlink-based dotfile synchronization
-type DotfilesPlugin struct {
-	ctx          *plugin.PluginContext
+// Plugin handles symlink-based dotfile synchronisation
+type Plugin struct {
+	ctx          *plugin.Context
 	dotfilesPath string
 	linkedFiles  []LinkedFile // for rollback
 }
@@ -39,38 +39,38 @@ var commonDotfiles = map[string]bool{
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&DotfilesPlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register dotfiles plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *DotfilesPlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "dotfiles"
 }
 
 // Version returns the plugin version
-func (p *DotfilesPlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *DotfilesPlugin) Description() string {
-	return "Symlink-based dotfile synchronization"
+func (p *Plugin) Description() string {
+	return "Symlink-based dotfile synchronisation"
 }
 
 // Dependencies returns plugin dependencies
-func (p *DotfilesPlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{"alternates"} // Run after alternates to use resolved paths
 }
 
 // Phase returns the execution phase
-func (p *DotfilesPlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhaseCore
 }
 
-// Initialize initializes the plugin with context
-func (p *DotfilesPlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.linkedFiles = make([]LinkedFile, 0)
 
@@ -96,9 +96,9 @@ func (p *DotfilesPlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *DotfilesPlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 
 	// Check if dotfiles repository exists
@@ -110,7 +110,7 @@ func (p *DotfilesPlugin) Validate() error {
 }
 
 // Execute executes the plugin logic
-func (p *DotfilesPlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	cfg, ok := p.ctx.Config.(*core.Config)
 	if !ok {
 		return fmt.Errorf("invalid config type")
@@ -127,7 +127,7 @@ func (p *DotfilesPlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // processEntry processes a single dotfile entry
-func (p *DotfilesPlugin) processEntry(entry core.DotfileEntry, ctx *plugin.ExecutionContext) error {
+func (p *Plugin) processEntry(entry core.DotfileEntry, ctx *plugin.ExecutionContext) error {
 	// Handle directory mode (simple form)
 	if entry.Directory != "" {
 		return p.processDirectory(entry.Directory, ctx)
@@ -142,7 +142,7 @@ func (p *DotfilesPlugin) processEntry(entry core.DotfileEntry, ctx *plugin.Execu
 }
 
 // processDirectory processes a directory entry (links all files in directory to home)
-func (p *DotfilesPlugin) processDirectory(dirName string, ctx *plugin.ExecutionContext) error {
+func (p *Plugin) processDirectory(dirName string, ctx *plugin.ExecutionContext) error {
 	sourceDir := filepath.Join(p.dotfilesPath, dirName)
 
 	// Check if directory exists
@@ -179,7 +179,7 @@ func (p *DotfilesPlugin) processDirectory(dirName string, ctx *plugin.ExecutionC
 }
 
 // processExplicitMapping processes an explicit source/target mapping
-func (p *DotfilesPlugin) processExplicitMapping(entry core.DotfileEntry, ctx *plugin.ExecutionContext) error {
+func (p *Plugin) processExplicitMapping(entry core.DotfileEntry, ctx *plugin.ExecutionContext) error {
 	// Expand source path relative to dotfiles directory
 	sourcePath := filepath.Join(p.dotfilesPath, entry.Source)
 
@@ -204,8 +204,9 @@ func (p *DotfilesPlugin) processExplicitMapping(entry core.DotfileEntry, ctx *pl
 }
 
 // processTemplateFile processes a template file (copy rendered content, not symlink)
-func (p *DotfilesPlugin) processTemplateFile(sourcePath, targetPath string, entry core.DotfileEntry, ctx *plugin.ExecutionContext) error {
+func (p *Plugin) processTemplateFile(sourcePath, targetPath string, entry core.DotfileEntry, ctx *plugin.ExecutionContext) error {
 	// Read template
+	//nolint:gosec // G304: sourcePath comes from validated config, not user input
 	content, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to read template file: %w", err)
@@ -221,7 +222,8 @@ func (p *DotfilesPlugin) processTemplateFile(sourcePath, targetPath string, entr
 	// For templates, we always write since content is dynamic
 
 	// Create target directory if needed
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	//nolint:gosec // G301: dotfile target directory needs 0755 for user access
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 
@@ -273,7 +275,7 @@ func (p *DotfilesPlugin) processTemplateFile(sourcePath, targetPath string, entr
 }
 
 // createSymlink creates a symlink from target to source
-func (p *DotfilesPlugin) createSymlink(sourcePath, targetPath string, ctx *plugin.ExecutionContext) error {
+func (p *Plugin) createSymlink(sourcePath, targetPath string, ctx *plugin.ExecutionContext) error {
 	// Check if target already exists and is correct symlink
 	if linkTarget, err := os.Readlink(targetPath); err == nil {
 		// Resolve absolute paths for comparison
@@ -312,7 +314,8 @@ func (p *DotfilesPlugin) createSymlink(sourcePath, targetPath string, ctx *plugi
 	}
 
 	// Create target directory if needed
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	//nolint:gosec // G301: dotfile target directory needs 0755 for user access
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 
@@ -354,7 +357,7 @@ func (p *DotfilesPlugin) createSymlink(sourcePath, targetPath string, ctx *plugi
 }
 
 // determineTargetPath determines the target path for a file in a directory
-func (p *DotfilesPlugin) determineTargetPath(dirName, relPath string) string {
+func (p *Plugin) determineTargetPath(_, relPath string) string {
 	homeDir := p.ctx.HomeDir
 
 	// Split path components
@@ -398,21 +401,21 @@ func (p *DotfilesPlugin) determineTargetPath(dirName, relPath string) string {
 }
 
 // getFileMode parses file mode string and returns os.FileMode
-func (p *DotfilesPlugin) getFileMode(modeStr string) os.FileMode {
+func (p *Plugin) getFileMode(modeStr string) os.FileMode {
 	if modeStr == "" {
-		return 0644 // Default
+		return 0o644 // Default
 	}
 
 	mode, err := strconv.ParseUint(modeStr, 8, 32)
 	if err != nil {
-		return 0644 // Default on error
+		return 0o644 // Default on error
 	}
 
 	return os.FileMode(mode)
 }
 
 // Rollback rolls back created symlinks
-func (p *DotfilesPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	for _, linked := range p.linkedFiles {
 		if err := os.Remove(linked.Target); err != nil {
 			if p.ctx.Logger != nil {
@@ -423,4 +426,3 @@ func (p *DotfilesPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 	p.linkedFiles = make([]LinkedFile, 0)
 	return nil
 }
-

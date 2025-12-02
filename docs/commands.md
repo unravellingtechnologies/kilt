@@ -24,7 +24,7 @@ All commands support the following global flags:
 | `--dry-run` | | Show what would happen without executing |
 | `--verbose` | `-v` | Detailed logging output |
 | `--config <path>` | | Custom config file location (default: `.kilt/config.yaml` or `~/.kilt/config.yaml`) |
-| `--no-color` | | Disable colored output |
+| `--no-colour` | | Disable coloured output |
 | `--force` | | Skip confirmation prompts |
 
 ### Examples
@@ -39,8 +39,8 @@ kilt sync --verbose
 # Use custom config file
 kilt sync --config /path/to/config.yaml
 
-# Disable colored output
-kilt sync --no-color
+# Disable coloured output
+kilt sync --no-colour
 
 # Skip confirmation prompts
 kilt restore 20250125-143022 --force
@@ -48,7 +48,7 @@ kilt restore 20250125-143022 --force
 
 ## kilt init
 
-Initialize Kilt from a Git repository.
+Initialise Kilt from a Git repository.
 
 ### Synopsis
 
@@ -69,13 +69,13 @@ The `init` command clones a Git repository containing your dotfiles and sets up 
 ### Examples
 
 ```bash
-# Initialize from GitHub repository
+# Initialise from GitHub repository
 kilt init https://github.com/yourusername/dotfiles
 
-# Initialize from SSH URL
+# Initialise from SSH URL
 kilt init git@github.com:yourusername/dotfiles.git
 
-# Initialize from local repository
+# Initialise from local repository
 kilt init /path/to/local/repo
 ```
 
@@ -96,7 +96,7 @@ kilt init /path/to/local/repo
 
 ## kilt sync
 
-Synchronize dotfiles bidirectionally.
+Synchronise dotfiles bidirectionally.
 
 ### Synopsis
 
@@ -106,7 +106,7 @@ kilt sync [flags]
 
 ### Description
 
-The `sync` command is the main command for synchronizing your dotfiles. It:
+The `sync` command is the main command for synchronising your dotfiles. It:
 - Pulls remote changes from Git
 - Applies local changes to Git (if any)
 - Executes plugins in the correct order

@@ -98,6 +98,7 @@ func (te *TemplateEngine) LoadCustomData(dataPath string) error {
 	}
 
 	// Read file
+	//nolint:gosec // G304: expandedPath comes from validated template expansion, not user input
 	data, err := os.ReadFile(expandedPath)
 	if err != nil {
 		return fmt.Errorf("failed to read data file: %w", err)
@@ -190,6 +191,7 @@ func (te *TemplateEngine) Render(templatePath string) (string, error) {
 	}
 
 	// Read template file
+	//nolint:gosec // G304: expandedPath comes from validated template expansion, not user input
 	templateStr, err := os.ReadFile(expandedPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template file: %w", err)

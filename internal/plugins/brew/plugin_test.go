@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -19,7 +20,7 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func setupBrewPlugin(t *testing.T, workDir string, cfg *core.Config) (*BrewPlugin, *plugin.PluginContext) {
+func setupPlugin(t *testing.T, workDir string, cfg *core.Config) (*Plugin, *plugin.Context) {
 	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
 	require.NoError(t, err)
@@ -31,7 +32,7 @@ func setupBrewPlugin(t *testing.T, workDir string, cfg *core.Config) (*BrewPlugi
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -42,43 +43,43 @@ func setupBrewPlugin(t *testing.T, workDir string, cfg *core.Config) (*BrewPlugi
 		HomeDir:  homeDir,
 	}
 
-	p := &BrewPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	return p, ctx
 }
 
-func TestBrewPlugin_Name(t *testing.T) {
-	p := &BrewPlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "brew", p.Name())
 }
 
-func TestBrewPlugin_Version(t *testing.T) {
-	p := &BrewPlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestBrewPlugin_Phase(t *testing.T) {
-	p := &BrewPlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhaseIntegration, p.Phase())
 }
 
-func TestBrewPlugin_Dependencies(t *testing.T) {
-	p := &BrewPlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Empty(t, deps)
 }
 
-func TestBrewPlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	p, _ := setupBrewPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.NotNil(t, p.ctx)
 	assert.Equal(t, "Brewfile", p.brewfile)
@@ -87,10 +88,10 @@ func TestBrewPlugin_Initialize(t *testing.T) {
 	assert.False(t, p.autoInstall)
 }
 
-func TestBrewPlugin_Initialize_WithConfig(t *testing.T) {
+func TestPlugin_Initialise_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -104,7 +105,7 @@ func TestBrewPlugin_Initialize_WithConfig(t *testing.T) {
 		},
 	}
 
-	p, _ := setupBrewPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.Equal(t, "custom/Brewfile", p.brewfile)
 	assert.True(t, p.autoUpdate)
@@ -113,40 +114,40 @@ func TestBrewPlugin_Initialize_WithConfig(t *testing.T) {
 	assert.True(t, p.autoInstall)
 }
 
-func TestBrewPlugin_Validate(t *testing.T) {
+func TestPlugin_Validate(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	p, _ := setupBrewPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Validate should pass (even if brew is not installed)
 	err := p.Validate()
 	assert.NoError(t, err)
 }
 
-func TestBrewPlugin_Execute_NoBrew(t *testing.T) {
+func TestPlugin_Execute_NoBrew(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	// Set brewPath to empty to simulate brew not found
 	p.brewPath = ""
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute should skip gracefully
@@ -155,29 +156,29 @@ func TestBrewPlugin_Execute_NoBrew(t *testing.T) {
 	assert.Empty(t, execCtx.Changes)
 }
 
-func TestBrewPlugin_Execute_DryRun(t *testing.T) {
+func TestPlugin_Execute_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a test Brewfile
 	brewfilePath := filepath.Join(workDir, "Brewfile")
-	require.NoError(t, os.WriteFile(brewfilePath, []byte("brew 'test'\n"), 0644))
+	require.NoError(t, os.WriteFile(brewfilePath, []byte("brew 'test'\n"), 0o644))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	// Set a mock brew path for testing
 	p.brewPath = "/usr/local/bin/brew"
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute in dry-run mode
@@ -195,10 +196,10 @@ func TestBrewPlugin_Execute_DryRun(t *testing.T) {
 	assert.True(t, found, "Expected brew_bundle change to be recorded in dry-run")
 }
 
-func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
+func TestPlugin_Execute_WithBundles(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -208,16 +209,16 @@ func TestBrewPlugin_Execute_WithBundles(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	// Set a mock brew path for testing
 	p.brewPath = "/usr/local/bin/brew"
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute in dry-run mode
@@ -249,24 +250,24 @@ func TestPathsMatch(t *testing.T) {
 	assert.False(t, core.PathsMatch("/path/to/file1", "/path/to/file2"))
 }
 
-func TestBrewPlugin_Rollback(t *testing.T) {
+func TestPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{},
 	}
 
-	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	// Simulate executed bundles
 	p.executedBundles = []string{filepath.Join(workDir, "Brewfile")}
 
 	rollbackCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Rollback
@@ -276,10 +277,10 @@ func TestBrewPlugin_Rollback(t *testing.T) {
 	assert.Empty(t, p.executedBundles)
 }
 
-func TestBrewPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
+func TestPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Plugins: map[string]interface{}{
@@ -289,7 +290,7 @@ func TestBrewPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupBrewPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	// Verify autoInstall is enabled
@@ -300,9 +301,9 @@ func TestBrewPlugin_Execute_AutoInstall_DryRun(t *testing.T) {
 	p.brewPath = ""
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute in dry-run mode - should attempt to install

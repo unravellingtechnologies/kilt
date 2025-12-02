@@ -50,7 +50,7 @@ We use `gofumpt` (via golangci-lint) for stricter formatting:
 
 ### Exported Identifiers
 
-- Use PascalCase: `Config`, `PluginRegistry`, `Execute()`
+- Use PascalCase: `Config`, `Registry`, `Execute()`
 - Be descriptive: `LoadConfiguration()` not `LoadConfig()` when context is needed
 - Acronyms are all uppercase: `HTTPClient`, `JSONMarshal` (not `HttpClient`, `JsonMarshal`)
 
@@ -184,7 +184,7 @@ logger.Error("Failed to execute plugin", "error", err, "plugin", p.Name())
 ### Console Output
 
 - For user-facing output, use `fmt.Fprintf(os.Stderr, ...)` or `fmt.Fprintf(os.Stdout, ...)`
-- Use colored output only when appropriate (respect `--no-color` flag)
+- Use coloured output only when appropriate (respect `--no-colour` flag)
 
 ## Testing
 
@@ -352,5 +352,8 @@ All code is automatically linted in CI. The build will fail if:
 - [Effective Go](https://go.dev/doc/effective_go)
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - [golangci-lint Documentation](https://golangci-lint.run/)
+
+
+
 
 

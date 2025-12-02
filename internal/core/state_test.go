@@ -82,7 +82,7 @@ func TestStateManagerLocking_StaleLock(t *testing.T) {
 
 	// Create a stale lock file with a non-existent PID (very high PID that won't exist)
 	fakePID := 999999
-	err = os.WriteFile(lockPath, []byte(fmt.Sprintf("%d\n", fakePID)), 0644)
+	err = os.WriteFile(lockPath, []byte(fmt.Sprintf("%d\n", fakePID)), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create stale lock file: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestStateManagerLocking_InvalidLockFile(t *testing.T) {
 	lockPath := filepath.Join(tmpDir, ".lock")
 
 	// Create a lock file with invalid PID format
-	err = os.WriteFile(lockPath, []byte("not-a-pid\n"), 0644)
+	err = os.WriteFile(lockPath, []byte("not-a-pid\n"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create invalid lock file: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestFileChecksums(t *testing.T) {
 	// Create a test file
 	testFile := filepath.Join(tmpDir, "test.txt")
 	testContent := "Hello, World!"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -251,7 +251,7 @@ func TestFileChecksums(t *testing.T) {
 	}
 
 	// Modify file
-	if err := os.WriteFile(testFile, []byte("Modified content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("Modified content"), 0o644); err != nil {
 		t.Fatalf("Failed to modify test file: %v", err)
 	}
 
@@ -387,7 +387,7 @@ func TestCleanup(t *testing.T) {
 
 	// Create a test file
 	testFile := filepath.Join(tmpDir, "old-file.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -403,7 +403,7 @@ func TestCleanup(t *testing.T) {
 
 	// Create a new file record
 	newFile := filepath.Join(tmpDir, "new-file.txt")
-	if err := os.WriteFile(newFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(newFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create new test file: %v", err)
 	}
 	if err := sm.UpdateFileRecord("source2.txt", newFile); err != nil {

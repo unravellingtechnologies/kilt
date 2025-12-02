@@ -4,6 +4,7 @@ package onchange
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,51 +16,58 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// OnChangePlugin executes commands when configuration or files change
-type OnChangePlugin struct {
-	ctx            *plugin.PluginContext
+// Detection mode constants for onchange plugin
+const (
+	DetectionModeGlobal      = "global"      // Run if any file changed
+	DetectionModeFile        = "file"        // Run if specific file changed
+	DetectionModeConditional = "conditional" // Run based on conditional logic
+)
+
+// Plugin executes commands when configuration or files change
+type Plugin struct {
+	ctx            *plugin.Context
 	defaultTimeout time.Duration
-	detectionMode  string // "global", "file", "conditional"
+	detectionMode  string   // "global", "file", "conditional"
 	watchFiles     []string // Files to watch for conditional mode
 	executedCmds   []string // Track commands executed in this run for rollback
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&OnChangePlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register onchange plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *OnChangePlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "onchange"
 }
 
 // Version returns the plugin version
-func (p *OnChangePlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *OnChangePlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "Execute commands when configuration or files change"
 }
 
 // Dependencies returns plugin dependencies
-func (p *OnChangePlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *OnChangePlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhaseOnChange
 }
 
-// Initialize initializes the plugin with context
-func (p *OnChangePlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
-	p.defaultTimeout = 5 * time.Minute // Default 5 minute timeout
-	p.detectionMode = "global"         // Default: run if any file changed
+	p.defaultTimeout = 5 * time.Minute    // Default 5 minute timeout
+	p.detectionMode = DetectionModeGlobal // Default: run if any file changed
 	p.watchFiles = make([]string, 0)
 	p.executedCmds = make([]string, 0)
 
@@ -78,7 +86,7 @@ func (p *OnChangePlugin) Initialize(ctx *plugin.PluginContext) error {
 		// Parse detection mode
 		if mode, ok := config["detection_mode"].(string); ok {
 			switch mode {
-			case "global", "file", "conditional":
+			case DetectionModeGlobal, DetectionModeFile, DetectionModeConditional:
 				p.detectionMode = mode
 			default:
 				return fmt.Errorf("invalid detection_mode: %s (must be 'global', 'file', or 'conditional')", mode)
@@ -105,9 +113,9 @@ func (p *OnChangePlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *OnChangePlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 
 	cfg, ok := p.ctx.Config.(*core.Config)
@@ -123,7 +131,7 @@ func (p *OnChangePlugin) Validate() error {
 	}
 
 	// Validate watch files exist if in conditional mode
-	if p.detectionMode == "conditional" {
+	if p.detectionMode == DetectionModeConditional {
 		if len(p.watchFiles) == 0 {
 			return fmt.Errorf("watch_files must be specified when detection_mode is 'conditional'")
 		}
@@ -145,7 +153,7 @@ func (p *OnChangePlugin) Validate() error {
 }
 
 // Execute executes the plugin logic
-func (p *OnChangePlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	cfg, ok := p.ctx.Config.(*core.Config)
 	if !ok {
 		return fmt.Errorf("invalid config type")
@@ -187,15 +195,15 @@ func (p *OnChangePlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // shouldExecute determines if commands should be executed based on detection mode
-func (p *OnChangePlugin) shouldExecute(ctx *plugin.ExecutionContext) (bool, []string, error) {
+func (p *Plugin) shouldExecute(ctx *plugin.ExecutionContext) (bool, []string, error) {
 	switch p.detectionMode {
-	case "global":
+	case DetectionModeGlobal:
 		// Run if any file changed (check execution context changes or state)
 		return p.checkGlobalChanges(ctx)
-	case "file":
+	case DetectionModeFile:
 		// Run if any tracked file changed
 		return p.checkFileChanges(ctx)
-	case "conditional":
+	case DetectionModeConditional:
 		// Run only if watched files changed
 		return p.checkConditionalChanges(ctx)
 	default:
@@ -204,7 +212,7 @@ func (p *OnChangePlugin) shouldExecute(ctx *plugin.ExecutionContext) (bool, []st
 }
 
 // checkGlobalChanges checks if any file changed (global mode)
-func (p *OnChangePlugin) checkGlobalChanges(ctx *plugin.ExecutionContext) (bool, []string, error) {
+func (p *Plugin) checkGlobalChanges(ctx *plugin.ExecutionContext) (bool, []string, error) {
 	// Check execution context changes first (most recent)
 	changedFiles := make([]string, 0)
 	for _, change := range ctx.Changes {
@@ -233,7 +241,7 @@ func (p *OnChangePlugin) checkGlobalChanges(ctx *plugin.ExecutionContext) (bool,
 }
 
 // checkFileChanges checks if any tracked files changed (file mode)
-func (p *OnChangePlugin) checkFileChanges(ctx *plugin.ExecutionContext) (bool, []string, error) {
+func (p *Plugin) checkFileChanges(ctx *plugin.ExecutionContext) (bool, []string, error) {
 	// Get all files that were changed in this execution
 	changedFiles := make([]string, 0)
 	seenFiles := make(map[string]bool)
@@ -272,7 +280,9 @@ func (p *OnChangePlugin) checkFileChanges(ctx *plugin.ExecutionContext) (bool, [
 }
 
 // checkConditionalChanges checks if watched files changed (conditional mode)
-func (p *OnChangePlugin) checkConditionalChanges(ctx *plugin.ExecutionContext) (bool, []string, error) {
+//
+//nolint:gocognit // Inherently complex conditional logic - the branching represents real domain decisions
+func (p *Plugin) checkConditionalChanges(ctx *plugin.ExecutionContext) (bool, []string, error) {
 	changedFiles := make([]string, 0)
 
 	// Check each watched file
@@ -327,9 +337,8 @@ func (p *OnChangePlugin) checkConditionalChanges(ctx *plugin.ExecutionContext) (
 	return len(changedFiles) > 0, changedFiles, nil
 }
 
-
 // executeCommand executes a single command
-func (p *OnChangePlugin) executeCommand(ctx *plugin.ExecutionContext, cmdStr string, index int, changedFiles []string) error {
+func (p *Plugin) executeCommand(ctx *plugin.ExecutionContext, cmdStr string, _ int, changedFiles []string) error {
 	// In dry-run mode, just report what would be executed
 	if p.ctx.DryRun {
 		ctx.AddChange(plugin.Change{
@@ -373,7 +382,7 @@ func (p *OnChangePlugin) executeCommand(ctx *plugin.ExecutionContext, cmdStr str
 }
 
 // runCommand executes a command with timeout protection
-func (p *OnChangePlugin) runCommand(cmdStr string, timeout time.Duration) (string, int, error) {
+func (p *Plugin) runCommand(cmdStr string, timeout time.Duration) (string, int, error) {
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -395,7 +404,8 @@ func (p *OnChangePlugin) runCommand(cmdStr string, timeout time.Duration) (strin
 	err := cmd.Run()
 	exitCode := 0
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
 			exitCode = exitError.ExitCode()
 		} else {
 			// Context timeout or other error
@@ -424,7 +434,7 @@ func (p *OnChangePlugin) runCommand(cmdStr string, timeout time.Duration) (strin
 }
 
 // Rollback rolls back command execution
-func (p *OnChangePlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// For on-change commands, rollback means logging what was executed
 	// We can't undo what the commands did, but we can log for debugging
 	for _, cmd := range p.executedCmds {
@@ -444,4 +454,3 @@ func (p *OnChangePlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 	return nil
 }
-

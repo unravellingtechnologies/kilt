@@ -1,4 +1,4 @@
-// Package logger provides structured logging with color support for Kilt.
+// Package logger provides structured logging with colour support for Kilt.
 package logger
 
 import (
@@ -11,25 +11,25 @@ import (
 
 // ProgressBar represents a progress bar
 type ProgressBar struct {
-	total     int
-	current   int
-	width     int
-	output    io.Writer
-	colorized bool
-	label     string
-	startTime time.Time
+	total      int
+	current    int
+	width      int
+	output     io.Writer
+	colourized bool
+	label      string
+	startTime  time.Time
 }
 
 // NewProgressBar creates a new progress bar
-func NewProgressBar(total int, label string, colorized bool) *ProgressBar {
+func NewProgressBar(total int, label string, colourized bool) *ProgressBar {
 	return &ProgressBar{
-		total:     total,
-		current:   0,
-		width:     50,
-		output:    os.Stderr,
-		colorized: colorized && isTerminal(os.Stderr),
-		label:     label,
-		startTime: time.Now(),
+		total:      total,
+		current:    0,
+		width:      50,
+		output:     os.Stderr,
+		colourized: colourized && isTerminal(os.Stderr),
+		label:      label,
+		startTime:  time.Now(),
 	}
 }
 
@@ -73,11 +73,11 @@ func (p *ProgressBar) render() {
 
 	// Progress bar
 	bar.WriteString("[")
-	if p.colorized {
+	if p.colourized {
 		bar.WriteString("\033[32m") // Green
 	}
 	bar.WriteString(strings.Repeat("=", filled))
-	if p.colorized {
+	if p.colourized {
 		bar.WriteString("\033[0m") // Reset
 	}
 	bar.WriteString(strings.Repeat(" ", empty))
@@ -97,14 +97,14 @@ func (p *ProgressBar) render() {
 	}
 
 	// Move cursor to beginning of line and clear
-	fmt.Fprintf(p.output, "\r\033[K%s", bar.String())
+	_, _ = fmt.Fprintf(p.output, "\r\033[K%s", bar.String()) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 }
 
 // Finish finishes the progress bar
 func (p *ProgressBar) Finish() {
 	p.current = p.total
 	p.render()
-	fmt.Fprintln(p.output) // New line
+	_, _ = fmt.Fprintln(p.output) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 }
 
 // formatDuration formats a duration in a human-readable way
@@ -123,25 +123,25 @@ func formatDuration(d time.Duration) string {
 
 // Spinner represents a spinner for indeterminate progress
 type Spinner struct {
-	output    io.Writer
-	colorized bool
-	message   string
-	stop      chan bool
-	done      chan bool
-	frames    []string
-	frame     int
+	output     io.Writer
+	colourized bool
+	message    string
+	stop       chan bool
+	done       chan bool
+	frames     []string
+	frame      int
 }
 
 // NewSpinner creates a new spinner
-func NewSpinner(message string, colorized bool) *Spinner {
+func NewSpinner(message string, colourized bool) *Spinner {
 	return &Spinner{
-		output:    os.Stderr,
-		colorized: colorized && isTerminal(os.Stderr),
-		message:   message,
-		stop:      make(chan bool),
-		done:      make(chan bool),
-		frames:    []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
-		frame:     0,
+		output:     os.Stderr,
+		colourized: colourized && isTerminal(os.Stderr),
+		message:    message,
+		stop:       make(chan bool),
+		done:       make(chan bool),
+		frames:     []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		frame:      0,
 	}
 }
 
@@ -154,7 +154,7 @@ func (s *Spinner) Start() {
 func (s *Spinner) Stop() {
 	s.stop <- true
 	<-s.done
-	fmt.Fprintf(s.output, "\r\033[K") // Clear line
+	_, _ = fmt.Fprintf(s.output, "\r\033[K") //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 }
 
 // run runs the spinner animation
@@ -169,10 +169,10 @@ func (s *Spinner) run() {
 			return
 		case <-ticker.C:
 			frame := s.frames[s.frame%len(s.frames)]
-			if s.colorized {
+			if s.colourized {
 				frame = "\033[36m" + frame + "\033[0m" // Cyan
 			}
-			fmt.Fprintf(s.output, "\r\033[K%s %s", frame, s.message)
+			_, _ = fmt.Fprintf(s.output, "\r\033[K%s %s", frame, s.message) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 			s.frame++
 		}
 	}
@@ -182,5 +182,3 @@ func (s *Spinner) run() {
 func (s *Spinner) UpdateMessage(message string) {
 	s.message = message
 }
-
-

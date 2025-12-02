@@ -17,7 +17,7 @@ type MockPlugin struct {
 	initError     error
 	validateError error
 	executeError  error
-	initialized   bool
+	initialised   bool
 	executed      bool
 }
 
@@ -26,8 +26,8 @@ func (m *MockPlugin) Version() string              { return m.version }
 func (m *MockPlugin) Description() string          { return m.description }
 func (m *MockPlugin) Dependencies() []string       { return m.dependencies }
 func (m *MockPlugin) Phase() plugin.ExecutionPhase { return m.phase }
-func (m *MockPlugin) Initialize(ctx *plugin.PluginContext) error {
-	m.initialized = true
+func (m *MockPlugin) Initialise(ctx *plugin.Context) error {
+	m.initialised = true
 	return m.initError
 }
 func (m *MockPlugin) Validate() error { return m.validateError }
@@ -147,7 +147,7 @@ func TestEngine_Execute_WithPlugins(t *testing.T) {
 		description: "Test plugin",
 		phase:       plugin.PhaseCore,
 	}
-	registry.Register(plugin1)
+	_ = registry.Register(plugin1) //nolint:errcheck // Test setup - errors handled by test framework
 
 	engine, err := NewEngine(cfg, registry)
 	if err != nil {
@@ -167,8 +167,8 @@ func TestEngine_Execute_WithPlugins(t *testing.T) {
 		t.Errorf("Expected 1 plugin run, got %d", result.PluginsRun)
 	}
 
-	if !plugin1.initialized {
-		t.Error("Plugin should have been initialized")
+	if !plugin1.initialised {
+		t.Error("Plugin should have been initialised")
 	}
 
 	if !plugin1.executed {
@@ -191,7 +191,7 @@ func TestEngine_Execute_PluginValidationFailure(t *testing.T) {
 		phase:         plugin.PhaseCore,
 		validateError: errors.New("validation failed"),
 	}
-	registry.Register(plugin1)
+	_ = registry.Register(plugin1) //nolint:errcheck // Test setup - errors handled by test framework
 
 	engine, err := NewEngine(cfg, registry)
 	if err != nil {
@@ -204,9 +204,9 @@ func TestEngine_Execute_PluginValidationFailure(t *testing.T) {
 		t.Logf("Execute returned error (may be expected): %v", err)
 	}
 
-	// Plugin should still be initialized
-	if !plugin1.initialized {
-		t.Error("Plugin should have been initialized")
+	// Plugin should still be initialised
+	if !plugin1.initialised {
+		t.Error("Plugin should have been initialised")
 	}
 
 	// Plugin should not be executed if validation fails
@@ -229,7 +229,7 @@ func TestEngine_Execute_DryRun(t *testing.T) {
 		description: "Test plugin",
 		phase:       plugin.PhaseCore,
 	}
-	registry.Register(plugin1)
+	_ = registry.Register(plugin1) //nolint:errcheck // Test setup - errors handled by test framework
 
 	engine, err := NewEngine(cfg, registry)
 	if err != nil {
@@ -247,9 +247,9 @@ func TestEngine_Execute_DryRun(t *testing.T) {
 		t.Errorf("Expected 1 plugin reported in dry-run, got %d", result.PluginsRun)
 	}
 
-	// Plugin should be initialized but not executed in dry-run
-	if !plugin1.initialized {
-		t.Error("Plugin should have been initialized")
+	// Plugin should be initialised but not executed in dry-run
+	if !plugin1.initialised {
+		t.Error("Plugin should have been initialised")
 	}
 
 	if plugin1.executed {
@@ -272,8 +272,8 @@ func TestEngine_GetExecutionPlan(t *testing.T) {
 		name:  "plugin2",
 		phase: plugin.PhaseIntegration,
 	}
-	registry.Register(plugin1)
-	registry.Register(plugin2)
+	_ = registry.Register(plugin1) //nolint:errcheck // Test setup - errors handled by test framework
+	_ = registry.Register(plugin2) //nolint:errcheck // Test setup - errors handled by test framework
 
 	engine, err := NewEngine(cfg, registry)
 	if err != nil {

@@ -99,7 +99,7 @@ This guide helps you migrate from other dotfiles management tools to Kilt.
      - scripts/bootstrap.sh
    ```
 
-6. **Initialize Kilt**:
+6. **Initialise Kilt**:
    ```bash
    kilt init https://github.com/yourusername/dotfiles
    kilt sync
@@ -219,7 +219,7 @@ This guide helps you migrate from other dotfiles management tools to Kilt.
      - scripts/install.sh
    ```
 
-7. **Initialize and sync**:
+7. **Initialise and sync**:
    ```bash
    kilt init https://github.com/yourusername/dotfiles
    kilt sync
@@ -278,7 +278,7 @@ This guide helps you migrate from other dotfiles management tools to Kilt.
      - scripts/install.sh
    ```
 
-4. **Initialize Kilt**:
+4. **Initialise Kilt**:
    ```bash
    kilt init https://github.com/yourusername/dotfiles
    kilt sync
@@ -358,7 +358,7 @@ If you have encrypted files or secrets:
    tar -czf dotfiles-backup.tar.gz ~/.zshrc ~/.gitconfig ...
    ```
 
-2. **Initialize Kilt**:
+2. **Initialise Kilt**:
    ```bash
    kilt init https://github.com/yourusername/dotfiles
    ```

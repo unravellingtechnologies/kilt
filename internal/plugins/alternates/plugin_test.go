@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -20,28 +21,28 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func TestAlternatesPlugin_Name(t *testing.T) {
-	p := &AlternatesPlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "alternates", p.Name())
 }
 
-func TestAlternatesPlugin_Version(t *testing.T) {
-	p := &AlternatesPlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestAlternatesPlugin_Phase(t *testing.T) {
-	p := &AlternatesPlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhasePreSync, p.Phase())
 }
 
-func TestAlternatesPlugin_Dependencies(t *testing.T) {
-	p := &AlternatesPlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Empty(t, deps)
 }
 
-func setupAlternatesPlugin(t *testing.T, workDir string, cfg *core.Config) (*AlternatesPlugin, *plugin.PluginContext) {
+func setupPlugin(t *testing.T, workDir string, cfg *core.Config) (*Plugin, *plugin.Context) {
 	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
 	require.NoError(t, err)
@@ -53,7 +54,7 @@ func setupAlternatesPlugin(t *testing.T, workDir string, cfg *core.Config) (*Alt
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -64,37 +65,37 @@ func setupAlternatesPlugin(t *testing.T, workDir string, cfg *core.Config) (*Alt
 		HomeDir:  homeDir,
 	}
 
-	p := &AlternatesPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	return p, ctx
 }
 
-func TestAlternatesPlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		Dotfiles: []core.DotfileEntry{},
 	}
 
-	p, _ := setupAlternatesPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 	assert.NotNil(t, p.ctx)
 }
 
-func TestAlternatesPlugin_Execute_OSMatch(t *testing.T) {
+func TestPlugin_Execute_OSMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create test files
 	testDir := filepath.Join(workDir, "config")
-	require.NoError(t, os.MkdirAll(testDir, 0755))
+	require.NoError(t, os.MkdirAll(testDir, 0o755))
 
 	// Create base file
 	baseFile := filepath.Join(testDir, "config.txt")
-	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0644))
+	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0o644))
 
 	// Create OS-specific alternate
 	var osFile string
@@ -103,7 +104,7 @@ func TestAlternatesPlugin_Execute_OSMatch(t *testing.T) {
 	} else {
 		osFile = filepath.Join(testDir, "config.linux.txt")
 	}
-	require.NoError(t, os.WriteFile(osFile, []byte("os-specific"), 0644))
+	require.NoError(t, os.WriteFile(osFile, []byte("os-specific"), 0o644))
 
 	cfg := &core.Config{
 		Dotfiles: []core.DotfileEntry{
@@ -114,12 +115,12 @@ func TestAlternatesPlugin_Execute_OSMatch(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupAlternatesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -134,24 +135,24 @@ func TestAlternatesPlugin_Execute_OSMatch(t *testing.T) {
 	assert.Len(t, execCtx.Changes, 1)
 }
 
-func TestAlternatesPlugin_Execute_HostnameMatch(t *testing.T) {
+func TestPlugin_Execute_HostnameMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	hostname, _ := os.Hostname()
 
 	// Create test files
 	testDir := filepath.Join(workDir, "config")
-	require.NoError(t, os.MkdirAll(testDir, 0755))
+	require.NoError(t, os.MkdirAll(testDir, 0o755))
 
 	// Create base file
 	baseFile := filepath.Join(testDir, "config.txt")
-	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0644))
+	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0o644))
 
 	// Create hostname-specific alternate
 	hostnameFile := filepath.Join(testDir, "config."+hostname+"@work.txt")
-	require.NoError(t, os.WriteFile(hostnameFile, []byte("hostname-specific"), 0644))
+	require.NoError(t, os.WriteFile(hostnameFile, []byte("hostname-specific"), 0o644))
 
 	cfg := &core.Config{
 		Dotfiles: []core.DotfileEntry{
@@ -162,12 +163,12 @@ func TestAlternatesPlugin_Execute_HostnameMatch(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupAlternatesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -177,20 +178,20 @@ func TestAlternatesPlugin_Execute_HostnameMatch(t *testing.T) {
 	assert.Equal(t, expectedSource, cfg.Dotfiles[0].Source)
 }
 
-func TestAlternatesPlugin_Execute_Priority(t *testing.T) {
+func TestPlugin_Execute_Priority(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	hostname, _ := os.Hostname()
 
 	// Create test files
 	testDir := filepath.Join(workDir, "config")
-	require.NoError(t, os.MkdirAll(testDir, 0755))
+	require.NoError(t, os.MkdirAll(testDir, 0o755))
 
 	// Create base file
 	baseFile := filepath.Join(testDir, "config.txt")
-	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0644))
+	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0o644))
 
 	// Create OS-specific alternate
 	var osFile string
@@ -199,11 +200,11 @@ func TestAlternatesPlugin_Execute_Priority(t *testing.T) {
 	} else {
 		osFile = filepath.Join(testDir, "config.linux.txt")
 	}
-	require.NoError(t, os.WriteFile(osFile, []byte("os-specific"), 0644))
+	require.NoError(t, os.WriteFile(osFile, []byte("os-specific"), 0o644))
 
 	// Create hostname-specific alternate (should win due to higher priority)
 	hostnameFile := filepath.Join(testDir, "config."+hostname+"@work.txt")
-	require.NoError(t, os.WriteFile(hostnameFile, []byte("hostname-specific"), 0644))
+	require.NoError(t, os.WriteFile(hostnameFile, []byte("hostname-specific"), 0o644))
 
 	cfg := &core.Config{
 		Dotfiles: []core.DotfileEntry{
@@ -214,12 +215,12 @@ func TestAlternatesPlugin_Execute_Priority(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupAlternatesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -229,18 +230,18 @@ func TestAlternatesPlugin_Execute_Priority(t *testing.T) {
 	assert.Equal(t, expectedSource, cfg.Dotfiles[0].Source, "hostname should win over OS")
 }
 
-func TestAlternatesPlugin_Execute_NoAlternates(t *testing.T) {
+func TestPlugin_Execute_NoAlternates(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create test files
 	testDir := filepath.Join(workDir, "config")
-	require.NoError(t, os.MkdirAll(testDir, 0755))
+	require.NoError(t, os.MkdirAll(testDir, 0o755))
 
 	// Create only base file (no alternates)
 	baseFile := filepath.Join(testDir, "config.txt")
-	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0644))
+	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0o644))
 
 	originalSource := "config/config.txt"
 	cfg := &core.Config{
@@ -252,12 +253,12 @@ func TestAlternatesPlugin_Execute_NoAlternates(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupAlternatesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -267,22 +268,22 @@ func TestAlternatesPlugin_Execute_NoAlternates(t *testing.T) {
 	assert.Empty(t, execCtx.Changes)
 }
 
-func TestAlternatesPlugin_Execute_ArchitectureMatch(t *testing.T) {
+func TestPlugin_Execute_ArchitectureMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create test files
 	testDir := filepath.Join(workDir, "config")
-	require.NoError(t, os.MkdirAll(testDir, 0755))
+	require.NoError(t, os.MkdirAll(testDir, 0o755))
 
 	// Create base file
 	baseFile := filepath.Join(testDir, "config.txt")
-	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0644))
+	require.NoError(t, os.WriteFile(baseFile, []byte("base"), 0o644))
 
 	// Create architecture-specific alternate
 	archFile := filepath.Join(testDir, "config."+runtime.GOARCH+".txt")
-	require.NoError(t, os.WriteFile(archFile, []byte("arch-specific"), 0644))
+	require.NoError(t, os.WriteFile(archFile, []byte("arch-specific"), 0o644))
 
 	cfg := &core.Config{
 		Dotfiles: []core.DotfileEntry{
@@ -293,12 +294,12 @@ func TestAlternatesPlugin_Execute_ArchitectureMatch(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupAlternatesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -308,10 +309,10 @@ func TestAlternatesPlugin_Execute_ArchitectureMatch(t *testing.T) {
 	assert.Equal(t, expectedSource, cfg.Dotfiles[0].Source)
 }
 
-func TestAlternatesPlugin_Execute_SkipsDirectoryMode(t *testing.T) {
+func TestPlugin_Execute_SkipsDirectoryMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Use directory mode entry (no Source set)
 	cfg := &core.Config{
@@ -321,12 +322,12 @@ func TestAlternatesPlugin_Execute_SkipsDirectoryMode(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupAlternatesPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))

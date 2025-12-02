@@ -15,52 +15,52 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// BrewPlugin handles Homebrew integration for package management
-type BrewPlugin struct {
-	ctx            *plugin.PluginContext
-	brewPath       string
-	brewfile       string
-	autoUpdate     bool
-	cleanupAfter   bool
-	autoInstall    bool
-	bundles        []string
+// Plugin handles Homebrew integration for package management
+type Plugin struct {
+	ctx             *plugin.Context
+	brewPath        string
+	brewfile        string
+	autoUpdate      bool
+	cleanupAfter    bool
+	autoInstall     bool
+	bundles         []string
 	executedBundles []string // Track bundles executed for rollback
-	installedBrew  bool     // Track if we installed brew in this run
+	installedBrew   bool     // Track if we installed brew in this run
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&BrewPlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register brew plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *BrewPlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "brew"
 }
 
 // Version returns the plugin version
-func (p *BrewPlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *BrewPlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "Homebrew integration for package management"
 }
 
 // Dependencies returns plugin dependencies
-func (p *BrewPlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *BrewPlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhaseIntegration
 }
 
-// Initialize initializes the plugin with context
-func (p *BrewPlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.brewfile = "Brewfile"
 	p.autoUpdate = false
@@ -128,9 +128,9 @@ func (p *BrewPlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *BrewPlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 
 	// If Homebrew is not installed, that's okay - plugin will skip
@@ -158,7 +158,9 @@ func (p *BrewPlugin) Validate() error {
 }
 
 // Execute executes the plugin logic
-func (p *BrewPlugin) Execute(ctx *plugin.ExecutionContext) error {
+//
+//nolint:gocognit,gocyclo // Orchestration function with justified complexity - splitting would scatter related brew installation logic
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	// Reset executed bundles for this execution
 	p.executedBundles = make([]string, 0)
 	p.installedBrew = false
@@ -172,7 +174,7 @@ func (p *BrewPlugin) Execute(ctx *plugin.ExecutionContext) error {
 			// After installation, find brew again
 			brewPath, err := p.findBrew()
 			if err != nil {
-				return fmt.Errorf("Homebrew installation completed but brew command not found: %w", err)
+				return fmt.Errorf("homebrew installation completed but brew command not found: %w", err)
 			}
 			p.brewPath = brewPath
 			p.installedBrew = true
@@ -238,7 +240,7 @@ func (p *BrewPlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // shouldRunBundle checks if brew bundle should run based on Brewfile changes
-func (p *BrewPlugin) shouldRunBundle(ctx *plugin.ExecutionContext) (bool, error) {
+func (p *Plugin) shouldRunBundle(ctx *plugin.ExecutionContext) (bool, error) {
 	// If bundles are specified, always run (they're separate files)
 	if len(p.bundles) > 0 {
 		return true, nil
@@ -277,9 +279,8 @@ func (p *BrewPlugin) shouldRunBundle(ctx *plugin.ExecutionContext) (bool, error)
 	return hasChanged, nil
 }
 
-
 // runBundle runs brew bundle for a specific file
-func (p *BrewPlugin) runBundle(ctx *plugin.ExecutionContext, bundleFile string) error {
+func (p *Plugin) runBundle(ctx *plugin.ExecutionContext, bundleFile string) error {
 	// Resolve bundle file path
 	bundlePath := bundleFile
 	if !filepath.IsAbs(bundlePath) {
@@ -301,6 +302,7 @@ func (p *BrewPlugin) runBundle(ctx *plugin.ExecutionContext, bundleFile string) 
 	defer cancel()
 
 	// Run brew bundle
+	//nolint:gosec // G204: p.brewPath and bundlePath are validated config values, not user input
 	cmd := exec.CommandContext(cmdCtx, p.brewPath, "bundle", "--file", bundlePath)
 	cmd.Dir = p.ctx.WorkDir
 	cmd.Env = os.Environ()
@@ -334,7 +336,7 @@ func (p *BrewPlugin) runBundle(ctx *plugin.ExecutionContext, bundleFile string) 
 }
 
 // runBrewUpdate runs brew update
-func (p *BrewPlugin) runBrewUpdate(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) runBrewUpdate(ctx *plugin.ExecutionContext) error {
 	if p.ctx.DryRun {
 		ctx.AddChange(plugin.Change{
 			Type:        "brew_update",
@@ -344,6 +346,7 @@ func (p *BrewPlugin) runBrewUpdate(ctx *plugin.ExecutionContext) error {
 		return nil
 	}
 
+	//nolint:gosec // G204: p.brewPath is a validated config value, not user input
 	cmd := exec.Command(p.brewPath, "update")
 	cmd.Dir = p.ctx.WorkDir
 	cmd.Env = os.Environ()
@@ -367,7 +370,7 @@ func (p *BrewPlugin) runBrewUpdate(ctx *plugin.ExecutionContext) error {
 }
 
 // runBrewCleanup runs brew cleanup
-func (p *BrewPlugin) runBrewCleanup(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) runBrewCleanup(ctx *plugin.ExecutionContext) error {
 	if p.ctx.DryRun {
 		ctx.AddChange(plugin.Change{
 			Type:        "brew_cleanup",
@@ -377,6 +380,7 @@ func (p *BrewPlugin) runBrewCleanup(ctx *plugin.ExecutionContext) error {
 		return nil
 	}
 
+	//nolint:gosec // G204: p.brewPath is a validated config value, not user input
 	cmd := exec.Command(p.brewPath, "cleanup")
 	cmd.Dir = p.ctx.WorkDir
 	cmd.Env = os.Environ()
@@ -400,11 +404,11 @@ func (p *BrewPlugin) runBrewCleanup(ctx *plugin.ExecutionContext) error {
 }
 
 // findBrew finds the Homebrew installation
-func (p *BrewPlugin) findBrew() (string, error) {
+func (p *Plugin) findBrew() (string, error) {
 	// Common Homebrew locations
 	brewPaths := []string{
-		"/usr/local/bin/brew",           // macOS Intel
-		"/opt/homebrew/bin/brew",        // macOS Apple Silicon
+		"/usr/local/bin/brew",                 // macOS Intel
+		"/opt/homebrew/bin/brew",              // macOS Apple Silicon
 		"/home/linuxbrew/.linuxbrew/bin/brew", // Linuxbrew
 		"/home/linuxbrew/.linuxbrew/bin/brew", // Linuxbrew (alternative)
 	}
@@ -428,7 +432,7 @@ func (p *BrewPlugin) findBrew() (string, error) {
 }
 
 // installHomebrew installs Homebrew using the official installer
-func (p *BrewPlugin) installHomebrew(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) installHomebrew(ctx *plugin.ExecutionContext) error {
 	// In dry-run mode, just report
 	if p.ctx.DryRun {
 		ctx.AddChange(plugin.Change{
@@ -447,21 +451,23 @@ func (p *BrewPlugin) installHomebrew(ctx *plugin.ExecutionContext) error {
 	osType := runtime.GOOS
 	var installScript string
 
-	if osType == "darwin" {
+	switch osType {
+	case "darwin":
 		// macOS - use official Homebrew installer
 		installScript = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
-	} else if osType == "linux" {
+	case "linux":
 		// Linux - use Linuxbrew installer
 		installScript = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
-	} else {
-		return fmt.Errorf("Homebrew installation not supported on %s", osType)
+	default:
+		return fmt.Errorf("homebrew installation not supported on %s", osType)
 	}
 
 	// Download and execute installer
 	// Note: This requires curl to be available
 	// Pipe curl output into bash for execution
+	//nolint:gosec // G204: installScript is hardcoded based on OS type, not user input
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("curl -fsSL %s | bash", installScript))
-	cmd.Stdin = os.Stdin  // Allow user interaction for password prompts
+	cmd.Stdin = os.Stdin // Allow user interaction for password prompts
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
@@ -470,7 +476,7 @@ func (p *BrewPlugin) installHomebrew(ctx *plugin.ExecutionContext) error {
 	cmd.Env = append(cmd.Env, "NONINTERACTIVE=0")
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Homebrew installation failed: %w", err)
+		return fmt.Errorf("homebrew installation failed: %w", err)
 	}
 
 	// Record installation
@@ -488,7 +494,7 @@ func (p *BrewPlugin) installHomebrew(ctx *plugin.ExecutionContext) error {
 }
 
 // Rollback rolls back brew bundle execution
-func (p *BrewPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// For brew plugin, rollback means logging what was executed
 	// We can't easily undo package installations, but we can log for debugging
 	for _, bundle := range p.executedBundles {
@@ -521,4 +527,3 @@ func (p *BrewPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 	return nil
 }
-

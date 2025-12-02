@@ -315,7 +315,7 @@ Once approved, maintainers will:
 
 Update documentation when you:
 - Add new features or commands
-- Change existing behavior
+- Change existing behaviour
 - Modify configuration options
 - Add or remove dependencies
 - Change the project structure

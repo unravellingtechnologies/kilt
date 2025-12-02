@@ -1,5 +1,5 @@
-// Package logger provides structured logging with color support for Kilt.
-// It respects the --no-color flag and supports different log levels (debug, info, warn, error).
+// Package logger provides structured logging with colour support for Kilt.
+// It respects the --no-colour flag and supports different log levels (debug, info, warn, error).
 package logger
 
 import (
@@ -13,6 +13,7 @@ import (
 // Level represents the log level
 type Level int
 
+// Log level constants define the severity of log messages.
 const (
 	LevelDebug Level = iota
 	LevelInfo
@@ -36,42 +37,42 @@ func (l Level) String() string {
 	}
 }
 
-// Colors for terminal output
+// colours for terminal output
 const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorBlue   = "\033[34m"
-	colorCyan   = "\033[36m"
-	colorGray   = "\033[90m"
+	colourReset  = "\033[0m"
+	colourRed    = "\033[31m"
+	colourGreen  = "\033[32m"
+	colourYellow = "\033[33m"
+	colourBlue   = "\033[34m"
+	colourCyan   = "\033[36m"
+	colourGray   = "\033[90m"
 )
 
-// Logger provides structured logging with color support
+// Logger provides structured logging with colour support
 type Logger struct {
-	level     Level
-	output    io.Writer
-	colorized bool
-	prefix    string
+	level      Level
+	output     io.Writer
+	colourized bool
+	prefix     string
 }
 
 // NewLogger creates a new logger instance
-func NewLogger(level Level, colorized bool) *Logger {
+func NewLogger(level Level, colourized bool) *Logger {
 	return &Logger{
-		level:     level,
-		output:    os.Stderr,
-		colorized: colorized && isTerminal(os.Stderr),
-		prefix:    "",
+		level:      level,
+		output:     os.Stderr,
+		colourized: colourized && isTerminal(os.Stderr),
+		prefix:     "",
 	}
 }
 
 // WithPrefix returns a new logger with a prefix
 func (l *Logger) WithPrefix(prefix string) *Logger {
 	return &Logger{
-		level:     l.level,
-		output:    l.output,
-		colorized: l.colorized,
-		prefix:    prefix,
+		level:      l.level,
+		output:     l.output,
+		colourized: l.colourized,
+		prefix:     prefix,
 	}
 }
 
@@ -97,12 +98,12 @@ func isTerminalFile(f *os.File) bool {
 	return (stat.Mode() & os.ModeCharDevice) != 0
 }
 
-// colorize applies color to a string if colorization is enabled
-func (l *Logger) colorize(color, text string) string {
-	if !l.colorized {
+// colourize applies colour to a string if colourization is enabled
+func (l *Logger) colourize(colour, text string) string {
+	if !l.colourized {
 		return text
 	}
-	return color + text + colorReset
+	return colour + text + colourReset
 }
 
 // formatMessage formats a log message with timestamp and level
@@ -112,31 +113,31 @@ func (l *Logger) formatMessage(level Level, msg string, fields ...interface{}) s
 	// Timestamp (only in verbose mode)
 	if l.level <= LevelDebug {
 		timestamp := time.Now().Format("15:04:05")
-		parts = append(parts, l.colorize(colorGray, timestamp))
+		parts = append(parts, l.colourize(colourGray, timestamp))
 	}
 
 	// Level
-	var levelColor string
+	var levelcolour string
 	var levelText string
 	switch level {
 	case LevelDebug:
-		levelColor = colorGray
+		levelcolour = colourGray
 		levelText = "DEBUG"
 	case LevelInfo:
-		levelColor = colorBlue
+		levelcolour = colourBlue
 		levelText = "INFO"
 	case LevelWarn:
-		levelColor = colorYellow
+		levelcolour = colourYellow
 		levelText = "WARN"
 	case LevelError:
-		levelColor = colorRed
+		levelcolour = colourRed
 		levelText = "ERROR"
 	}
-	parts = append(parts, l.colorize(levelColor, levelText))
+	parts = append(parts, l.colourize(levelcolour, levelText))
 
 	// Prefix
 	if l.prefix != "" {
-		parts = append(parts, l.colorize(colorCyan, "["+l.prefix+"]"))
+		parts = append(parts, l.colourize(colourCyan, "["+l.prefix+"]"))
 	}
 
 	// Message
@@ -153,7 +154,7 @@ func (l *Logger) formatMessage(level Level, msg string, fields ...interface{}) s
 			}
 		}
 		if len(fieldParts) > 0 {
-			parts = append(parts, l.colorize(colorGray, "("+strings.Join(fieldParts, ", ")+")"))
+			parts = append(parts, l.colourize(colourGray, "("+strings.Join(fieldParts, ", ")+")"))
 		}
 	}
 
@@ -163,34 +164,34 @@ func (l *Logger) formatMessage(level Level, msg string, fields ...interface{}) s
 // Debug logs a debug message
 func (l *Logger) Debug(msg string, fields ...interface{}) {
 	if l.level <= LevelDebug {
-		fmt.Fprintln(l.output, l.formatMessage(LevelDebug, msg, fields...))
+		_, _ = fmt.Fprintln(l.output, l.formatMessage(LevelDebug, msg, fields...)) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 	}
 }
 
 // Info logs an info message
 func (l *Logger) Info(msg string, fields ...interface{}) {
 	if l.level <= LevelInfo {
-		fmt.Fprintln(l.output, l.formatMessage(LevelInfo, msg, fields...))
+		_, _ = fmt.Fprintln(l.output, l.formatMessage(LevelInfo, msg, fields...)) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 	}
 }
 
 // Warn logs a warning message
 func (l *Logger) Warn(msg string, fields ...interface{}) {
 	if l.level <= LevelWarn {
-		fmt.Fprintln(l.output, l.formatMessage(LevelWarn, msg, fields...))
+		_, _ = fmt.Fprintln(l.output, l.formatMessage(LevelWarn, msg, fields...)) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 	}
 }
 
 // Error logs an error message
 func (l *Logger) Error(msg string, fields ...interface{}) {
 	if l.level <= LevelError {
-		fmt.Fprintln(l.output, l.formatMessage(LevelError, msg, fields...))
+		_, _ = fmt.Fprintln(l.output, l.formatMessage(LevelError, msg, fields...)) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 	}
 }
 
-// Success logs a success message (info level with green color)
+// Success logs a success message (info level with green colour)
 func (l *Logger) Success(msg string, fields ...interface{}) {
-	formatted := l.colorize(colorGreen, "✓ "+msg)
+	formatted := l.colourize(colourGreen, "✓ "+msg)
 	if len(fields) > 0 {
 		var fieldParts []string
 		for i := 0; i < len(fields); i += 2 {
@@ -201,20 +202,20 @@ func (l *Logger) Success(msg string, fields ...interface{}) {
 			}
 		}
 		if len(fieldParts) > 0 {
-			formatted += " " + l.colorize(colorGray, "("+strings.Join(fieldParts, ", ")+")")
+			formatted += " " + l.colourize(colourGray, "("+strings.Join(fieldParts, ", ")+")")
 		}
 	}
-	fmt.Fprintln(l.output, formatted)
+	_, _ = fmt.Fprintln(l.output, formatted) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 }
 
 // Printf formats and prints a message (no level prefix)
 func (l *Logger) Printf(format string, args ...interface{}) {
-	fmt.Fprintf(l.output, format, args...)
+	_, _ = fmt.Fprintf(l.output, format, args...) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 }
 
 // Println prints a message (no level prefix)
 func (l *Logger) Println(args ...interface{}) {
-	fmt.Fprintln(l.output, args...)
+	_, _ = fmt.Fprintln(l.output, args...) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 }
 
 // SetLevel sets the log level
@@ -222,9 +223,9 @@ func (l *Logger) SetLevel(level Level) {
 	l.level = level
 }
 
-// SetColorized sets whether output should be colorized
-func (l *Logger) SetColorized(colorized bool) {
-	l.colorized = colorized && isTerminal(l.output)
+// Setcolourized sets whether output should be colourized
+func (l *Logger) Setcolourized(colourized bool) {
+	l.colourized = colourized && isTerminal(l.output)
 }
 
 // LevelFromString converts a string to a log level
@@ -242,4 +243,3 @@ func LevelFromString(s string) Level {
 		return LevelInfo
 	}
 }
-

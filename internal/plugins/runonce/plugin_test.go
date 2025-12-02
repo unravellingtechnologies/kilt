@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -20,28 +21,28 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func TestRunOncePlugin_Name(t *testing.T) {
-	p := &RunOncePlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "runonce", p.Name())
 }
 
-func TestRunOncePlugin_Version(t *testing.T) {
-	p := &RunOncePlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestRunOncePlugin_Phase(t *testing.T) {
-	p := &RunOncePlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhaseRunOnce, p.Phase())
 }
 
-func TestRunOncePlugin_Dependencies(t *testing.T) {
-	p := &RunOncePlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Empty(t, deps)
 }
 
-func setupRunOncePlugin(t *testing.T, workDir string, cfg *core.Config) (*RunOncePlugin, *plugin.PluginContext) {
+func setupPlugin(t *testing.T, workDir string, cfg *core.Config) (*Plugin, *plugin.Context) {
 	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
 	require.NoError(t, err)
@@ -53,7 +54,7 @@ func setupRunOncePlugin(t *testing.T, workDir string, cfg *core.Config) (*RunOnc
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -64,32 +65,32 @@ func setupRunOncePlugin(t *testing.T, workDir string, cfg *core.Config) (*RunOnc
 		HomeDir:  homeDir,
 	}
 
-	p := &RunOncePlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	return p, ctx
 }
 
-func TestRunOncePlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{},
 	}
 
-	p, _ := setupRunOncePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.NotNil(t, p.ctx)
 	assert.Equal(t, 5*time.Minute, p.defaultTimeout)
 	assert.False(t, p.forceRun)
 }
 
-func TestRunOncePlugin_Initialize_WithConfig(t *testing.T) {
+func TestPlugin_Initialise_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{},
@@ -101,16 +102,16 @@ func TestRunOncePlugin_Initialize_WithConfig(t *testing.T) {
 		},
 	}
 
-	p, _ := setupRunOncePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.Equal(t, 10*time.Minute, p.defaultTimeout)
 	assert.True(t, p.forceRun)
 }
 
-func TestRunOncePlugin_Execute_SimpleScript(t *testing.T) {
+func TestPlugin_Execute_SimpleScript(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a simple test script
 	scriptPath := filepath.Join(workDir, "test_script.sh")
@@ -118,18 +119,18 @@ func TestRunOncePlugin_Execute_SimpleScript(t *testing.T) {
 echo "Hello from test script"
 exit 0
 `
-	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{"test_script.sh"},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -144,10 +145,10 @@ exit 0
 	assert.Equal(t, "runonce_execute", change.Type)
 }
 
-func TestRunOncePlugin_Execute_SkipAlreadyExecuted(t *testing.T) {
+func TestPlugin_Execute_SkipAlreadyExecuted(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a simple test script
 	scriptPath := filepath.Join(workDir, "test_script.sh")
@@ -155,7 +156,7 @@ func TestRunOncePlugin_Execute_SkipAlreadyExecuted(t *testing.T) {
 echo "Hello from test script"
 exit 0
 `
-	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -175,13 +176,13 @@ exit 0
 		RunOnce: []string{"test_script.sh"},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.State = state
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -193,10 +194,10 @@ exit 0
 	assert.Equal(t, "runonce_skipped", change.Type)
 }
 
-func TestRunOncePlugin_Execute_ForceRun(t *testing.T) {
+func TestPlugin_Execute_ForceRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a simple test script
 	scriptPath := filepath.Join(workDir, "test_script.sh")
@@ -204,7 +205,7 @@ func TestRunOncePlugin_Execute_ForceRun(t *testing.T) {
 echo "Hello from test script"
 exit 0
 `
-	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0o755))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -229,13 +230,13 @@ exit 0
 		},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.State = state
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -247,10 +248,10 @@ exit 0
 	assert.Equal(t, "runonce_execute", change.Type, "should not be skipped")
 }
 
-func TestRunOncePlugin_Execute_DryRun(t *testing.T) {
+func TestPlugin_Execute_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a simple test script
 	scriptPath := filepath.Join(workDir, "test_script.sh")
@@ -258,19 +259,19 @@ func TestRunOncePlugin_Execute_DryRun(t *testing.T) {
 echo "Hello from test script"
 exit 0
 `
-	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{"test_script.sh"},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -284,10 +285,10 @@ exit 0
 	assert.Equal(t, "runonce_execute", change.Type)
 }
 
-func TestRunOncePlugin_Execute_ScriptFailure(t *testing.T) {
+func TestPlugin_Execute_ScriptFailure(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a script that fails
 	scriptPath := filepath.Join(workDir, "failing_script.sh")
@@ -295,18 +296,18 @@ func TestRunOncePlugin_Execute_ScriptFailure(t *testing.T) {
 echo "This script fails"
 exit 1
 `
-	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{"failing_script.sh"},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute should fail
@@ -325,10 +326,10 @@ exit 1
 	assert.Equal(t, 1, record.ExitCode)
 }
 
-func TestRunOncePlugin_Execute_MultipleScripts(t *testing.T) {
+func TestPlugin_Execute_MultipleScripts(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create multiple test scripts
 	script1 := filepath.Join(workDir, "script1.sh")
@@ -345,19 +346,19 @@ func TestRunOncePlugin_Execute_MultipleScripts(t *testing.T) {
 	}
 
 	for _, s := range scripts {
-		require.NoError(t, os.WriteFile(s.path, []byte(s.content), 0755))
+		require.NoError(t, os.WriteFile(s.path, []byte(s.content), 0o755))
 	}
 
 	cfg := &core.Config{
 		RunOnce: []string{"script1.sh", "script2.sh", "script3.sh"},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Execute(execCtx))
@@ -372,26 +373,26 @@ func TestRunOncePlugin_Execute_MultipleScripts(t *testing.T) {
 	}
 }
 
-func TestRunOncePlugin_Validate_MissingScript(t *testing.T) {
+func TestPlugin_Validate_MissingScript(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{"nonexistent_script.sh"},
 	}
 
-	p, _ := setupRunOncePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Validate should fail
 	err := p.Validate()
 	assert.Error(t, err, "Validate() should return error when script doesn't exist")
 }
 
-func TestRunOncePlugin_Rollback(t *testing.T) {
+func TestPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	// Create a simple test script
 	scriptPath := filepath.Join(workDir, "test_script.sh")
@@ -399,18 +400,18 @@ func TestRunOncePlugin_Rollback(t *testing.T) {
 echo "Hello from test script"
 exit 0
 `
-	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte(scriptContent), 0o755))
 
 	cfg := &core.Config{
 		RunOnce: []string{"test_script.sh"},
 	}
 
-	p, ctx := setupRunOncePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute script
@@ -422,9 +423,9 @@ exit 0
 
 	// Rollback
 	rollbackCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Rollback(rollbackCtx))
@@ -441,6 +442,6 @@ func generateTaskIDForTest(scriptPath string) string {
 		absPath = scriptPath
 	}
 	// Use the same logic as the plugin
-	p := &RunOncePlugin{}
+	p := &Plugin{}
 	return p.generateTaskID(absPath)
 }

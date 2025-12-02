@@ -13,46 +13,46 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// AlternatesPlugin handles automatic file selection based on OS, hostname, and architecture
-type AlternatesPlugin struct {
-	ctx            *plugin.PluginContext
+// Plugin handles automatic file selection based on OS, hostname, and architecture
+type Plugin struct {
+	ctx            *plugin.Context
 	customPatterns []string
 	resolutions    map[string]string // original source -> resolved source
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&AlternatesPlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register alternates plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *AlternatesPlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "alternates"
 }
 
 // Version returns the plugin version
-func (p *AlternatesPlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *AlternatesPlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "Automatic file selection based on OS, hostname, architecture"
 }
 
 // Dependencies returns plugin dependencies
-func (p *AlternatesPlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *AlternatesPlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhasePreSync
 }
 
-// Initialize initializes the plugin with context
-func (p *AlternatesPlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.resolutions = make(map[string]string)
 
@@ -73,15 +73,15 @@ func (p *AlternatesPlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *AlternatesPlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 	return nil
 }
 
 // Execute executes the plugin logic
-func (p *AlternatesPlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	cfg, ok := p.ctx.Config.(*core.Config)
 	if !ok {
 		return fmt.Errorf("invalid config type")
@@ -136,7 +136,7 @@ func (p *AlternatesPlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // resolveAlternate resolves the best alternate file for a given source
-func (p *AlternatesPlugin) resolveAlternate(source, hostname, osName, arch string) (string, error) {
+func (p *Plugin) resolveAlternate(source, hostname, osName, arch string) (string, error) {
 	// Get directory and base filename
 	dir := filepath.Dir(source)
 	base := filepath.Base(source)
@@ -175,7 +175,7 @@ func (p *AlternatesPlugin) resolveAlternate(source, hostname, osName, arch strin
 }
 
 // findCandidates finds all candidate alternate files
-func (p *AlternatesPlugin) findCandidates(searchDir, nameWithoutExt, ext string) ([]string, error) {
+func (p *Plugin) findCandidates(searchDir, nameWithoutExt, ext string) ([]string, error) {
 	candidates := make([]string, 0)
 
 	// Check if search directory exists
@@ -211,7 +211,7 @@ func (p *AlternatesPlugin) findCandidates(searchDir, nameWithoutExt, ext string)
 }
 
 // matchesAlternatePattern checks if a filename matches alternate patterns
-func (p *AlternatesPlugin) matchesAlternatePattern(filename, nameWithoutExt, ext string) bool {
+func (p *Plugin) matchesAlternatePattern(filename, nameWithoutExt, ext string) bool {
 	// Remove extension for matching
 	nameWithoutExtAndExt := strings.TrimSuffix(filename, ext)
 
@@ -247,7 +247,7 @@ func (p *AlternatesPlugin) matchesAlternatePattern(filename, nameWithoutExt, ext
 }
 
 // matchesBuiltInPattern checks if suffix matches built-in patterns
-func (p *AlternatesPlugin) matchesBuiltInPattern(suffix string) bool {
+func (p *Plugin) matchesBuiltInPattern(suffix string) bool {
 	// OS patterns: mac, darwin, linux, windows
 	osPatterns := []string{"mac", "darwin", "linux", "windows"}
 	for _, pattern := range osPatterns {
@@ -273,7 +273,7 @@ func (p *AlternatesPlugin) matchesBuiltInPattern(suffix string) bool {
 }
 
 // matchesCustomPattern checks if suffix matches a custom pattern
-func (p *AlternatesPlugin) matchesCustomPattern(suffix, pattern string) bool {
+func (p *Plugin) matchesCustomPattern(suffix, pattern string) bool {
 	// Simple pattern matching - can be extended
 	// For now, support exact match and wildcard-like patterns
 	if pattern == suffix {
@@ -308,7 +308,7 @@ func (p *AlternatesPlugin) matchesCustomPattern(suffix, pattern string) bool {
 }
 
 // selectBestCandidate selects the best candidate based on priority rules
-func (p *AlternatesPlugin) selectBestCandidate(candidates []string, originalSource, hostname, osName, arch string) string {
+func (p *Plugin) selectBestCandidate(candidates []string, originalSource, hostname, osName, arch string) string {
 	type candidateScore struct {
 		path  string
 		score int
@@ -350,7 +350,7 @@ func (p *AlternatesPlugin) selectBestCandidate(candidates []string, originalSour
 
 // scoreCandidate scores a candidate file based on how well it matches
 // Higher score = better match
-func (p *AlternatesPlugin) scoreCandidate(filename, originalBaseName, hostname, osName, arch string) int {
+func (p *Plugin) scoreCandidate(filename, originalBaseName, hostname, osName, arch string) int {
 	score := 0
 	ext := filepath.Ext(filename)
 	nameWithoutExt := strings.TrimSuffix(filename, ext)
@@ -422,10 +422,9 @@ func (p *AlternatesPlugin) scoreCandidate(filename, originalBaseName, hostname, 
 }
 
 // Rollback rolls back alternate resolutions
-func (p *AlternatesPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// Alternates plugin doesn't modify files, only config
 	// So rollback is a no-op, but we clear resolutions
 	p.resolutions = make(map[string]string)
 	return nil
 }
-

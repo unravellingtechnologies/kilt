@@ -21,7 +21,7 @@ This directory contains example Kilt configuration files to help you get started
    - Add your dotfile directories
    - Configure plugins as needed
 
-3. Initialize Kilt:
+3. Initialise Kilt:
    ```bash
    kilt init https://github.com/yourusername/dotfiles
    ```

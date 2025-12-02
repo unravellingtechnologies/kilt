@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -20,28 +21,28 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func TestOnChangePlugin_Name(t *testing.T) {
-	p := &OnChangePlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "onchange", p.Name())
 }
 
-func TestOnChangePlugin_Version(t *testing.T) {
-	p := &OnChangePlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestOnChangePlugin_Phase(t *testing.T) {
-	p := &OnChangePlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhaseOnChange, p.Phase())
 }
 
-func TestOnChangePlugin_Dependencies(t *testing.T) {
-	p := &OnChangePlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Empty(t, deps)
 }
 
-func setupOnChangePlugin(t *testing.T, workDir string, cfg *core.Config) (*OnChangePlugin, *plugin.PluginContext) {
+func setupPlugin(t *testing.T, workDir string, cfg *core.Config) (*Plugin, *plugin.Context) {
 	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
 	require.NoError(t, err)
@@ -53,7 +54,7 @@ func setupOnChangePlugin(t *testing.T, workDir string, cfg *core.Config) (*OnCha
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -64,35 +65,35 @@ func setupOnChangePlugin(t *testing.T, workDir string, cfg *core.Config) (*OnCha
 		HomeDir:  homeDir,
 	}
 
-	p := &OnChangePlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	return p, ctx
 }
 
-func TestOnChangePlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{},
 	}
 
-	p, _ := setupOnChangePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.NotNil(t, p.ctx)
 	assert.Equal(t, 5*time.Minute, p.defaultTimeout)
 	assert.Equal(t, "global", p.detectionMode)
 }
 
-func TestOnChangePlugin_Initialize_WithConfig(t *testing.T) {
+func TestPlugin_Initialise_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	watchFile := filepath.Join(tmpDir, "watch.txt")
-	require.NoError(t, os.WriteFile(watchFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(watchFile, []byte("test"), 0o644))
 
 	cfg := &core.Config{
 		OnChange: []string{},
@@ -100,33 +101,33 @@ func TestOnChangePlugin_Initialize_WithConfig(t *testing.T) {
 			"onchange": map[string]interface{}{
 				"timeout":        "10m",
 				"detection_mode": "conditional",
-				"watch_files":   []interface{}{watchFile},
+				"watch_files":    []interface{}{watchFile},
 			},
 		},
 	}
 
-	p, _ := setupOnChangePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.Equal(t, 10*time.Minute, p.defaultTimeout)
 	assert.Equal(t, "conditional", p.detectionMode)
 	assert.Len(t, p.watchFiles, 1)
 }
 
-func TestOnChangePlugin_Execute_GlobalMode_NoChanges(t *testing.T) {
+func TestPlugin_Execute_GlobalMode_NoChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute with no changes
@@ -136,20 +137,20 @@ func TestOnChangePlugin_Execute_GlobalMode_NoChanges(t *testing.T) {
 	assert.Empty(t, execCtx.Changes)
 }
 
-func TestOnChangePlugin_Execute_GlobalMode_WithChanges(t *testing.T) {
+func TestPlugin_Execute_GlobalMode_WithChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	// Add a change to the execution context
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
+		Context: ctx,
 		Changes: []plugin.Change{
 			{
 				Type:        "file_write",
@@ -177,13 +178,13 @@ func TestOnChangePlugin_Execute_GlobalMode_WithChanges(t *testing.T) {
 	assert.True(t, found, "Expected onchange_execute change to be recorded")
 }
 
-func TestOnChangePlugin_Execute_ConditionalMode_NoMatch(t *testing.T) {
+func TestPlugin_Execute_ConditionalMode_NoMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	watchFile := filepath.Join(tmpDir, "watch.txt")
-	require.NoError(t, os.WriteFile(watchFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(watchFile, []byte("test"), 0o644))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -197,18 +198,18 @@ func TestOnChangePlugin_Execute_ConditionalMode_NoMatch(t *testing.T) {
 		Plugins: map[string]interface{}{
 			"onchange": map[string]interface{}{
 				"detection_mode": "conditional",
-				"watch_files":   []interface{}{watchFile},
+				"watch_files":    []interface{}{watchFile},
 			},
 		},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	// Override state with the one that has the file recorded
 	ctx.State = state
 
 	// Add a change to a different file
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
+		Context: ctx,
 		Changes: []plugin.Change{
 			{
 				Type:        "file_write",
@@ -232,13 +233,13 @@ func TestOnChangePlugin_Execute_ConditionalMode_NoMatch(t *testing.T) {
 	assert.Zero(t, onChangeCount, "Expected 0 onchange_execute changes")
 }
 
-func TestOnChangePlugin_Execute_ConditionalMode_WithMatch(t *testing.T) {
+func TestPlugin_Execute_ConditionalMode_WithMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	watchFile := filepath.Join(tmpDir, "watch.txt")
-	require.NoError(t, os.WriteFile(watchFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(watchFile, []byte("test"), 0o644))
 
 	stateDir := filepath.Join(tmpDir, ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
@@ -248,26 +249,26 @@ func TestOnChangePlugin_Execute_ConditionalMode_WithMatch(t *testing.T) {
 	require.NoError(t, state.UpdateFileRecord("", watchFile))
 
 	// Modify the file to trigger change detection
-	require.NoError(t, os.WriteFile(watchFile, []byte("modified"), 0644))
+	require.NoError(t, os.WriteFile(watchFile, []byte("modified"), 0o644))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
 		Plugins: map[string]interface{}{
 			"onchange": map[string]interface{}{
 				"detection_mode": "conditional",
-				"watch_files":   []interface{}{watchFile},
+				"watch_files":    []interface{}{watchFile},
 			},
 		},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	// Override state with the one that has the file recorded
 	ctx.State = state
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	// Execute - should run because watched file changed
@@ -283,21 +284,21 @@ func TestOnChangePlugin_Execute_ConditionalMode_WithMatch(t *testing.T) {
 	assert.Greater(t, onChangeCount, 0, "Expected onchange_execute change to be recorded")
 }
 
-func TestOnChangePlugin_Execute_DryRun(t *testing.T) {
+func TestPlugin_Execute_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	// Add a change to trigger execution
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
+		Context: ctx,
 		Changes: []plugin.Change{
 			{
 				Type:        "file_write",
@@ -323,20 +324,20 @@ func TestOnChangePlugin_Execute_DryRun(t *testing.T) {
 	assert.True(t, found, "Expected onchange_execute change to be recorded in dry-run")
 }
 
-func TestOnChangePlugin_Execute_MultipleCommands(t *testing.T) {
+func TestPlugin_Execute_MultipleCommands(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'command1'", "echo 'command2'", "echo 'command3'"},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	// Add a change to trigger execution
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
+		Context: ctx,
 		Changes: []plugin.Change{
 			{
 				Type:        "file_write",
@@ -360,42 +361,42 @@ func TestOnChangePlugin_Execute_MultipleCommands(t *testing.T) {
 	assert.Equal(t, 3, onChangeCount)
 }
 
-func TestOnChangePlugin_Validate(t *testing.T) {
+func TestPlugin_Validate(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
 	}
 
-	p, _ := setupOnChangePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Validate should pass
 	err := p.Validate()
 	assert.NoError(t, err)
 }
 
-func TestOnChangePlugin_Validate_EmptyCommand(t *testing.T) {
+func TestPlugin_Validate_EmptyCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{""}, // Empty command
 	}
 
-	p, _ := setupOnChangePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Validate should fail
 	err := p.Validate()
 	assert.Error(t, err, "Validate() should return error for empty command")
 }
 
-func TestOnChangePlugin_Validate_ConditionalMode_NoWatchFiles(t *testing.T) {
+func TestPlugin_Validate_ConditionalMode_NoWatchFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
@@ -407,27 +408,27 @@ func TestOnChangePlugin_Validate_ConditionalMode_NoWatchFiles(t *testing.T) {
 		},
 	}
 
-	p, _ := setupOnChangePlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Validate should fail
 	err := p.Validate()
 	assert.Error(t, err, "Validate() should return error when detection_mode is conditional but no watch_files specified")
 }
 
-func TestOnChangePlugin_Rollback(t *testing.T) {
+func TestPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		OnChange: []string{"echo 'test'"},
 	}
 
-	p, ctx := setupOnChangePlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	// Add a change and execute
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
+		Context: ctx,
 		Changes: []plugin.Change{
 			{
 				Type:        "file_write",
@@ -442,9 +443,9 @@ func TestOnChangePlugin_Rollback(t *testing.T) {
 
 	// Rollback
 	rollbackCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	require.NoError(t, p.Rollback(rollbackCtx))

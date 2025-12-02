@@ -1,5 +1,5 @@
 // Package git provides the Git plugin for Kilt.
-// It handles bidirectional Git synchronization for the dotfiles repository and manages extra repositories.
+// It handles bidirectional Git synchronisation for the dotfiles repository and manages extra repositories.
 package git
 
 import (
@@ -15,52 +15,52 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// GitPlugin handles bidirectional Git synchronization for the dotfiles repository
+// Plugin handles bidirectional Git synchronisation for the dotfiles repository
 // and manages extra repositories
-type GitPlugin struct {
-	ctx            *plugin.PluginContext
-	dotfilesPath   string
-	repoPath       string
-	autoPull       bool
-	sshKey         string
-	gitToken       string
-	clonedRepos    []string // Track cloned repos for rollback
-	askpassScript  string   // Path to temporary GIT_ASKPASS script (for token auth)
+type Plugin struct {
+	ctx           *plugin.Context
+	dotfilesPath  string
+	repoPath      string
+	autoPull      bool
+	sshKey        string
+	gitToken      string
+	clonedRepos   []string // Track cloned repos for rollback
+	askpassScript string   // Path to temporary GIT_ASKPASS script (for token auth)
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&GitPlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register git plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *GitPlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "git"
 }
 
 // Version returns the plugin version
-func (p *GitPlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *GitPlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "Manage bare Git repository and clone extra repositories"
 }
 
 // Dependencies returns plugin dependencies
-func (p *GitPlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *GitPlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhasePreSync
 }
 
-// Initialize initializes the plugin with context
-func (p *GitPlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.autoPull = true
 	p.sshKey = ""
@@ -116,9 +116,9 @@ func (p *GitPlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *GitPlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 
 	// Check if dotfiles repository exists
@@ -136,7 +136,7 @@ func (p *GitPlugin) Validate() error {
 }
 
 // Execute executes the plugin logic
-func (p *GitPlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	// Reset cloned repos for this execution
 	p.clonedRepos = make([]string, 0)
 
@@ -163,7 +163,7 @@ func (p *GitPlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // syncMainRepository syncs the main dotfiles repository
-func (p *GitPlugin) syncMainRepository(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) syncMainRepository(ctx *plugin.ExecutionContext) error {
 	// 1. Fetch remote
 	if err := p.gitFetch(p.repoPath); err != nil {
 		return fmt.Errorf("git fetch failed: %w", err)
@@ -212,14 +212,14 @@ func (p *GitPlugin) syncMainRepository(ctx *plugin.ExecutionContext) error {
 	ctx.AddChange(plugin.Change{
 		Type:        "git_sync",
 		Files:       []string{p.repoPath},
-		Description: fmt.Sprintf("Synchronized dotfiles repository: %s", p.repoPath),
+		Description: fmt.Sprintf("Synchronised dotfiles repository: %s", p.repoPath),
 	})
 
 	return nil
 }
 
 // handleExtraRepository handles an extra repository from config
-func (p *GitPlugin) handleExtraRepository(ctx *plugin.ExecutionContext, repo core.Repository) error {
+func (p *Plugin) handleExtraRepository(ctx *plugin.ExecutionContext, repo core.Repository) error {
 	// Expand repository path
 	repoPath, err := core.ExpandPath(repo.Path)
 	if err != nil {
@@ -279,7 +279,7 @@ func (p *GitPlugin) handleExtraRepository(ctx *plugin.ExecutionContext, repo cor
 }
 
 // gitFetch fetches remote changes
-func (p *GitPlugin) gitFetch(repoPath string) error {
+func (p *Plugin) gitFetch(repoPath string) error {
 	// Check if remote exists
 	cmd := exec.Command("git", "remote", "get-url", "origin")
 	cmd.Dir = repoPath
@@ -305,10 +305,11 @@ func (p *GitPlugin) gitFetch(repoPath string) error {
 }
 
 // cloneRepository clones a repository
-func (p *GitPlugin) cloneRepository(repo core.Repository, targetPath string) error {
+func (p *Plugin) cloneRepository(repo core.Repository, targetPath string) error {
 	// Create parent directory if it doesn't exist
 	parentDir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+	//nolint:gosec // G301: git repo parent directory needs 0755 for user access
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
@@ -347,7 +348,7 @@ func (p *GitPlugin) cloneRepository(repo core.Repository, targetPath string) err
 		return fmt.Errorf("git clone failed: %s: %w", string(output), err)
 	}
 
-	// If sparse checkout was requested, initialize it
+	// If sparse checkout was requested, initialise it
 	if repo.Sparse {
 		cmd = exec.Command("git", "sparse-checkout", "init", "--cone")
 		cmd.Dir = targetPath
@@ -361,7 +362,7 @@ func (p *GitPlugin) cloneRepository(repo core.Repository, targetPath string) err
 }
 
 // updateRepository updates an existing repository
-func (p *GitPlugin) updateRepository(repo core.Repository, repoPath string) error {
+func (p *Plugin) updateRepository(repo core.Repository, repoPath string) error {
 	// Fetch latest changes
 	if err := p.gitFetch(repoPath); err != nil {
 		return fmt.Errorf("failed to fetch: %w", err)
@@ -380,22 +381,23 @@ func (p *GitPlugin) updateRepository(repo core.Repository, repoPath string) erro
 	}
 
 	// Pull latest changes
+	//nolint:gosec // G204: branch name comes from git output (validated), not user input
 	cmd := exec.Command("git", "pull", "--ff-only", "origin", branch)
 	cmd.Dir = repoPath
 	if err := p.setupGitAuth(cmd); err != nil {
 		return fmt.Errorf("failed to setup git authentication: %w", err)
 	}
 	defer p.cleanupAskpassScript()
-	output, err := cmd.CombinedOutput()
-	if err != nil {
+	if _, err := cmd.CombinedOutput(); err != nil {
 		// If fast-forward fails, try regular pull
+		//nolint:gosec // G204: branch name comes from git output (validated), not user input
 		cmd = exec.Command("git", "pull", "origin", branch)
 		cmd.Dir = repoPath
 		if err := p.setupGitAuth(cmd); err != nil {
 			return fmt.Errorf("failed to setup git authentication: %w", err)
 		}
 		defer p.cleanupAskpassScript()
-		output, err = cmd.CombinedOutput()
+		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("git pull failed: %s: %w", string(output), err)
 		}
@@ -406,7 +408,7 @@ func (p *GitPlugin) updateRepository(repo core.Repository, repoPath string) erro
 
 // createAskpassScript creates a temporary GIT_ASKPASS script that outputs the token
 // This provides transient credential authentication without persisting tokens in URLs or config
-func (p *GitPlugin) createAskpassScript() (string, error) {
+func (p *Plugin) createAskpassScript() (string, error) {
 	if p.gitToken == "" {
 		return "", nil
 	}
@@ -425,19 +427,20 @@ echo "%s"
 `, p.gitToken)
 
 	if _, err := tmpFile.WriteString(scriptContent); err != nil {
-		tmpFile.Close()
-		os.Remove(scriptPath)
+		_ = tmpFile.Close()       //nolint:errcheck // Cleanup in error path
+		_ = os.Remove(scriptPath) //nolint:errcheck // Cleanup in error path
 		return "", fmt.Errorf("failed to write askpass script: %w", err)
 	}
 
 	if err := tmpFile.Close(); err != nil {
-		os.Remove(scriptPath)
+		_ = os.Remove(scriptPath) //nolint:errcheck // Cleanup in error path
 		return "", fmt.Errorf("failed to close askpass script: %w", err)
 	}
 
 	// Make script executable
-	if err := os.Chmod(scriptPath, 0700); err != nil {
-		os.Remove(scriptPath)
+	//nolint:gosec // G302: executable script requires 0700 permissions
+	if err := os.Chmod(scriptPath, 0o700); err != nil {
+		_ = os.Remove(scriptPath) //nolint:errcheck // Cleanup in error path
 		return "", fmt.Errorf("failed to make askpass script executable: %w", err)
 	}
 
@@ -445,9 +448,9 @@ echo "%s"
 }
 
 // cleanupAskpassScript removes the temporary GIT_ASKPASS script
-func (p *GitPlugin) cleanupAskpassScript() {
+func (p *Plugin) cleanupAskpassScript() {
 	if p.askpassScript != "" {
-		os.Remove(p.askpassScript)
+		_ = os.Remove(p.askpassScript) //nolint:errcheck // Cleanup operation - errors are non-critical
 		p.askpassScript = ""
 	}
 }
@@ -456,8 +459,8 @@ func (p *GitPlugin) cleanupAskpassScript() {
 // For HTTPS URLs with tokens, creates a temporary GIT_ASKPASS script that provides
 // the token only for the duration of the Git operation, preventing token persistence
 // in repository configuration or process arguments.
-func (p *GitPlugin) setupGitAuth(cmd *exec.Cmd) error {
-	// Initialize base environment: use existing cmd.Env if non-nil, else os.Environ()
+func (p *Plugin) setupGitAuth(cmd *exec.Cmd) error {
+	// Initialise base environment: use existing cmd.Env if non-nil, else os.Environ()
 	baseEnv := cmd.Env
 	if baseEnv == nil {
 		baseEnv = os.Environ()
@@ -497,7 +500,7 @@ func (p *GitPlugin) setupGitAuth(cmd *exec.Cmd) error {
 }
 
 // hasUncommittedChanges checks if there are uncommitted local changes
-func (p *GitPlugin) hasUncommittedChanges() (bool, error) {
+func (p *Plugin) hasUncommittedChanges() (bool, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = p.repoPath
 	output, err := cmd.Output()
@@ -509,7 +512,7 @@ func (p *GitPlugin) hasUncommittedChanges() (bool, error) {
 }
 
 // hasRemoteChanges checks if there are remote changes
-func (p *GitPlugin) hasRemoteChanges() (bool, error) {
+func (p *Plugin) hasRemoteChanges() (bool, error) {
 	// Get current branch
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = p.repoPath
@@ -520,6 +523,7 @@ func (p *GitPlugin) hasRemoteChanges() (bool, error) {
 	branch := strings.TrimSpace(string(branchOutput))
 
 	// Compare HEAD with origin/branch
+	//nolint:gosec // G204: branch name comes from git output (validated), not user input
 	cmd = exec.Command("git", "rev-list", "--count", fmt.Sprintf("HEAD..origin/%s", branch))
 	cmd.Dir = p.repoPath
 	output, err := cmd.CombinedOutput()
@@ -545,7 +549,7 @@ func (p *GitPlugin) hasRemoteChanges() (bool, error) {
 }
 
 // gitPull pulls remote changes with fast-forward only
-func (p *GitPlugin) gitPull() error {
+func (p *Plugin) gitPull() error {
 	cmd := exec.Command("git", "pull", "--ff-only", "origin")
 	cmd.Dir = p.repoPath
 	if err := p.setupGitAuth(cmd); err != nil {
@@ -560,7 +564,7 @@ func (p *GitPlugin) gitPull() error {
 }
 
 // pullWithRebase attempts to pull with rebase
-func (p *GitPlugin) pullWithRebase() error {
+func (p *Plugin) pullWithRebase() error {
 	// First, try to stash any uncommitted changes
 	cmd := exec.Command("git", "stash", "push", "-m", "kilt: auto-stash before pull")
 	cmd.Dir = p.repoPath
@@ -610,7 +614,7 @@ func (p *GitPlugin) pullWithRebase() error {
 }
 
 // commitAndPush commits local changes and pushes them
-func (p *GitPlugin) commitAndPush() error {
+func (p *Plugin) commitAndPush() error {
 	// Get list of changed files
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = p.repoPath
@@ -653,6 +657,7 @@ func (p *GitPlugin) commitAndPush() error {
 	commitMsg := fmt.Sprintf("kilt: auto-sync from %s\n\nFiles changed:\n%s", hostname, strings.Join(fileList, "\n"))
 
 	// Commit
+	//nolint:gosec // G204: commitMsg is constructed from safe inputs (hostname, fileList from validated paths)
 	cmd = exec.Command("git", "commit", "-m", commitMsg)
 	cmd.Dir = p.repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -663,7 +668,7 @@ func (p *GitPlugin) commitAndPush() error {
 		return fmt.Errorf("git commit failed: %s: %w", string(output), err)
 	}
 
-		// Push
+	// Push
 	cmd = exec.Command("git", "push", "origin")
 	cmd.Dir = p.repoPath
 	if err := p.setupGitAuth(cmd); err != nil {
@@ -682,7 +687,7 @@ func (p *GitPlugin) commitAndPush() error {
 }
 
 // Rollback rolls back any changes
-func (p *GitPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// Remove cloned repositories
 	for _, repoPath := range p.clonedRepos {
 		if p.ctx.Logger != nil {
@@ -710,4 +715,3 @@ func (p *GitPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 	return nil
 }
-

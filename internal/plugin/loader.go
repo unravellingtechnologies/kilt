@@ -7,30 +7,30 @@ import (
 	"fmt"
 )
 
-// PluginLoader handles plugin discovery, registration, and initialization
-type PluginLoader struct {
-	registry *PluginRegistry
+// Loader handles plugin discovery, registration, and initialization
+type Loader struct {
+	registry *Registry
 }
 
 // NewLoader creates a new plugin loader
-func NewLoader(registry *PluginRegistry) *PluginLoader {
-	return &PluginLoader{
+func NewLoader(registry *Registry) *Loader {
+	return &Loader{
 		registry: registry,
 	}
 }
 
-// LoadPlugins initializes all registered plugins with the given context
+// LoadPlugins initialises all registered plugins with the given context
 // Plugins should already be registered in the registry (via init() functions in plugin packages)
-func (l *PluginLoader) LoadPlugins(ctx *PluginContext) error {
+func (l *Loader) LoadPlugins(ctx *Context) error {
 	plugins, err := l.registry.GetOrderedPlugins()
 	if err != nil {
 		return fmt.Errorf("failed to get ordered plugins: %w", err)
 	}
 
-	// Initialize all plugins in dependency order
+	// Initialise all plugins in dependency order
 	for _, plugin := range plugins {
-		if err := plugin.Initialize(ctx); err != nil {
-			return fmt.Errorf("failed to initialize plugin %s: %w", plugin.Name(), err)
+		if err := plugin.Initialise(ctx); err != nil {
+			return fmt.Errorf("failed to initialise plugin %s: %w", plugin.Name(), err)
 		}
 
 		if err := plugin.Validate(); err != nil {
@@ -67,11 +67,11 @@ func GetPluginConfig(config Config, pluginName string) map[string]interface{} {
 //     every plugin, adding boilerplate with no real benefit for our use case.
 //
 //  4. Testing: Tests can create fresh registries via NewRegistry() when isolation
-//     is needed. Integration tests use the global registry to test real behavior.
+//     is needed. Integration tests use the global registry to test real behaviour.
 //
 // Trade-off: Global state makes unit testing slightly harder, but the pattern is
 // well-established in Go and provides excellent ergonomics for plugin authors.
-var defaultRegistry *PluginRegistry
+var defaultRegistry *Registry
 
 func init() {
 	defaultRegistry = NewRegistry()
@@ -88,10 +88,9 @@ func RegisterPlugin(p Plugin) error {
 
 // GetDefaultRegistry returns the default plugin registry
 // This allows plugins to register themselves during init()
-func GetDefaultRegistry() *PluginRegistry {
+func GetDefaultRegistry() *Registry {
 	if defaultRegistry == nil {
 		defaultRegistry = NewRegistry()
 	}
 	return defaultRegistry
 }
-

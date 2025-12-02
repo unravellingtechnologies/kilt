@@ -11,49 +11,49 @@ import (
 	"github.com/unravelling/kilt/internal/plugin"
 )
 
-// DirectoriesPlugin ensures specified directories exist with proper permissions
-type DirectoriesPlugin struct {
-	ctx           *plugin.PluginContext
-	defaultMode   os.FileMode
-	createdDirs   []string // For rollback tracking
+// Plugin ensures specified directories exist with proper permissions
+type Plugin struct {
+	ctx         *plugin.Context
+	defaultMode os.FileMode
+	createdDirs []string // For rollback tracking
 }
 
 func init() {
-	if err := plugin.RegisterPlugin(&DirectoriesPlugin{}); err != nil {
+	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register directories plugin: %w", err))
 	}
 }
 
 // Name returns the plugin name
-func (p *DirectoriesPlugin) Name() string {
+func (p *Plugin) Name() string {
 	return "directories"
 }
 
 // Version returns the plugin version
-func (p *DirectoriesPlugin) Version() string {
+func (p *Plugin) Version() string {
 	return "1.0.0"
 }
 
 // Description returns the plugin description
-func (p *DirectoriesPlugin) Description() string {
+func (p *Plugin) Description() string {
 	return "Ensure specified directories exist with proper permissions"
 }
 
 // Dependencies returns plugin dependencies
-func (p *DirectoriesPlugin) Dependencies() []string {
+func (p *Plugin) Dependencies() []string {
 	return []string{}
 }
 
 // Phase returns the execution phase
-func (p *DirectoriesPlugin) Phase() plugin.ExecutionPhase {
+func (p *Plugin) Phase() plugin.ExecutionPhase {
 	return plugin.PhaseCore
 }
 
-// Initialize initializes the plugin with context
-func (p *DirectoriesPlugin) Initialize(ctx *plugin.PluginContext) error {
+// Initialise initialises the plugin with context
+func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.createdDirs = make([]string, 0)
-	p.defaultMode = 0755 // Default directory permissions
+	p.defaultMode = 0o755 // Default directory permissions
 
 	// Get plugin-specific configuration
 	config := plugin.GetPluginConfig(ctx.Config, p.Name())
@@ -71,15 +71,15 @@ func (p *DirectoriesPlugin) Initialize(ctx *plugin.PluginContext) error {
 }
 
 // Validate validates the plugin configuration
-func (p *DirectoriesPlugin) Validate() error {
+func (p *Plugin) Validate() error {
 	if p.ctx == nil {
-		return fmt.Errorf("plugin context not initialized")
+		return fmt.Errorf("plugin context not initialised")
 	}
 	return nil
 }
 
 // Execute executes the plugin logic
-func (p *DirectoriesPlugin) Execute(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	cfg, ok := p.ctx.Config.(*core.Config)
 	if !ok {
 		return fmt.Errorf("invalid config type")
@@ -105,7 +105,7 @@ func (p *DirectoriesPlugin) Execute(ctx *plugin.ExecutionContext) error {
 }
 
 // processDirectory processes a single directory
-func (p *DirectoriesPlugin) processDirectory(ctx *plugin.ExecutionContext, dirPath string) error {
+func (p *Plugin) processDirectory(ctx *plugin.ExecutionContext, dirPath string) error {
 	// Check if directory already exists
 	info, err := os.Stat(dirPath)
 	if err == nil {
@@ -186,7 +186,7 @@ func (p *DirectoriesPlugin) processDirectory(ctx *plugin.ExecutionContext, dirPa
 }
 
 // getTargetMode returns the target mode for a directory
-func (p *DirectoriesPlugin) getTargetMode(dirPath string) os.FileMode {
+func (p *Plugin) getTargetMode(dirPath string) os.FileMode {
 	// Check if there's a per-directory mode in plugin config
 	config := plugin.GetPluginConfig(p.ctx.Config, p.Name())
 	if config != nil {
@@ -206,7 +206,7 @@ func (p *DirectoriesPlugin) getTargetMode(dirPath string) os.FileMode {
 }
 
 // Rollback rolls back directory creation
-func (p *DirectoriesPlugin) Rollback(ctx *plugin.ExecutionContext) error {
+func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 	// Remove created directories in reverse order
 	for i := len(p.createdDirs) - 1; i >= 0; i-- {
 		dir := p.createdDirs[i]
@@ -223,4 +223,3 @@ func (p *DirectoriesPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 	return nil
 }
-

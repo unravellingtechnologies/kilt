@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
 )
@@ -21,7 +22,7 @@ func (m *mockLogger) Info(msg string, fields ...interface{})  {}
 func (m *mockLogger) Warn(msg string, fields ...interface{})  {}
 func (m *mockLogger) Error(msg string, fields ...interface{}) {}
 
-func setupGitPlugin(t *testing.T, workDir string, cfg *core.Config) (*GitPlugin, *plugin.PluginContext) {
+func setupPlugin(t *testing.T, workDir string, cfg *core.Config) (*Plugin, *plugin.Context) {
 	stateDir := filepath.Join(filepath.Dir(workDir), ".kilt", "state")
 	state, err := core.NewStateManager(stateDir)
 	require.NoError(t, err)
@@ -33,7 +34,7 @@ func setupGitPlugin(t *testing.T, workDir string, cfg *core.Config) (*GitPlugin,
 	template := core.NewTemplateEngine()
 	homeDir, _ := os.UserHomeDir()
 
-	ctx := &plugin.PluginContext{
+	ctx := &plugin.Context{
 		Config:   cfg,
 		State:    state,
 		Backup:   backup,
@@ -44,56 +45,56 @@ func setupGitPlugin(t *testing.T, workDir string, cfg *core.Config) (*GitPlugin,
 		HomeDir:  homeDir,
 	}
 
-	p := &GitPlugin{}
-	require.NoError(t, p.Initialize(ctx))
+	p := &Plugin{}
+	require.NoError(t, p.Initialise(ctx))
 
 	return p, ctx
 }
 
-func TestGitPlugin_Name(t *testing.T) {
-	p := &GitPlugin{}
+func TestPlugin_Name(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "git", p.Name())
 }
 
-func TestGitPlugin_Version(t *testing.T) {
-	p := &GitPlugin{}
+func TestPlugin_Version(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, "1.0.0", p.Version())
 }
 
-func TestGitPlugin_Phase(t *testing.T) {
-	p := &GitPlugin{}
+func TestPlugin_Phase(t *testing.T) {
+	p := &Plugin{}
 	assert.Equal(t, plugin.PhasePreSync, p.Phase())
 }
 
-func TestGitPlugin_Dependencies(t *testing.T) {
-	p := &GitPlugin{}
+func TestPlugin_Dependencies(t *testing.T) {
+	p := &Plugin{}
 	deps := p.Dependencies()
 	assert.Empty(t, deps)
 }
 
-func TestGitPlugin_Initialize(t *testing.T) {
+func TestPlugin_Initialise(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		DotfilesPath: workDir,
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.NotNil(t, p.ctx)
 	assert.Equal(t, true, p.autoPull)
 }
 
-func TestGitPlugin_Initialize_WithConfig(t *testing.T) {
+func TestPlugin_Initialise_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	sshKey := filepath.Join(tmpDir, "id_ed25519")
-	require.NoError(t, os.WriteFile(sshKey, []byte("test key"), 0600))
+	require.NoError(t, os.WriteFile(sshKey, []byte("test key"), 0o600))
 
 	cfg := &core.Config{
 		DotfilesPath: workDir,
@@ -107,31 +108,31 @@ func TestGitPlugin_Initialize_WithConfig(t *testing.T) {
 		},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	assert.Equal(t, false, p.autoPull)
 	assert.Equal(t, sshKey, p.sshKey)
 	assert.Equal(t, "test_token", p.gitToken)
 }
 
-func TestGitPlugin_Initialize_DefaultPath(t *testing.T) {
+func TestPlugin_Initialise_DefaultPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		DotfilesPath: "", // Empty, should use default
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	expectedPath := core.DefaultDotfilesPath()
 	expandedPath, _ := core.ExpandPath(expectedPath)
 	assert.Equal(t, expandedPath, p.repoPath)
 }
 
-func TestGitPlugin_Validate_RepositoryNotExists(t *testing.T) {
+func TestPlugin_Validate_RepositoryNotExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
 
@@ -140,36 +141,36 @@ func TestGitPlugin_Validate_RepositoryNotExists(t *testing.T) {
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	err := p.Validate()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "dotfiles repository not found")
 }
 
-func TestGitPlugin_Validate_NotGitRepository(t *testing.T) {
+func TestPlugin_Validate_NotGitRepository(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	cfg := &core.Config{
 		DotfilesPath: workDir,
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	err := p.Validate()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not a git repository")
 }
 
-func TestGitPlugin_Validate_ValidRepository(t *testing.T) {
+func TestPlugin_Validate_ValidRepository(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -179,18 +180,18 @@ func TestGitPlugin_Validate_ValidRepository(t *testing.T) {
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	err := p.Validate()
 	assert.NoError(t, err)
 }
 
-func TestGitPlugin_Execute_AutoPullDisabled(t *testing.T) {
+func TestPlugin_Execute_AutoPullDisabled(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -205,25 +206,25 @@ func TestGitPlugin_Execute_AutoPullDisabled(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupGitPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	require.NoError(t, p.Validate())
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err := p.Execute(execCtx)
 	assert.NoError(t, err)
 }
 
-func TestGitPlugin_Execute_ExtraRepos_DryRun(t *testing.T) {
+func TestPlugin_Execute_ExtraRepos_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -245,13 +246,13 @@ func TestGitPlugin_Execute_ExtraRepos_DryRun(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupGitPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err := p.Execute(execCtx)
@@ -268,12 +269,12 @@ func TestGitPlugin_Execute_ExtraRepos_DryRun(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestGitPlugin_HasUncommittedChanges(t *testing.T) {
+func TestPlugin_HasUncommittedChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -292,7 +293,7 @@ func TestGitPlugin_HasUncommittedChanges(t *testing.T) {
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Initially no changes
 	hasChanges, err := p.hasUncommittedChanges()
@@ -301,7 +302,7 @@ func TestGitPlugin_HasUncommittedChanges(t *testing.T) {
 
 	// Create a file
 	testFile := filepath.Join(workDir, "test.txt")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Now should have changes
 	hasChanges, err = p.hasUncommittedChanges()
@@ -309,12 +310,12 @@ func TestGitPlugin_HasUncommittedChanges(t *testing.T) {
 	assert.True(t, hasChanges)
 }
 
-func TestGitPlugin_HasRemoteChanges_NoRemote(t *testing.T) {
+func TestPlugin_HasRemoteChanges_NoRemote(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -329,7 +330,7 @@ func TestGitPlugin_HasRemoteChanges_NoRemote(t *testing.T) {
 	require.NoError(t, cmd.Run())
 
 	// Create initial commit to establish HEAD and a branch
-	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# Test"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# Test"), 0o644))
 	cmd = exec.Command("git", "add", "README.md")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -343,7 +344,7 @@ func TestGitPlugin_HasRemoteChanges_NoRemote(t *testing.T) {
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// No remote configured
 	hasChanges, err := p.hasRemoteChanges()
@@ -351,12 +352,12 @@ func TestGitPlugin_HasRemoteChanges_NoRemote(t *testing.T) {
 	assert.False(t, hasChanges)
 }
 
-func TestGitPlugin_GitFetch_NoRemote(t *testing.T) {
+func TestPlugin_GitFetch_NoRemote(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -366,26 +367,26 @@ func TestGitPlugin_GitFetch_NoRemote(t *testing.T) {
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, _ := setupGitPlugin(t, workDir, cfg)
+	p, _ := setupPlugin(t, workDir, cfg)
 
 	// Fetch with no remote should not error
 	err := p.gitFetch(workDir)
 	assert.NoError(t, err)
 }
 
-func TestGitPlugin_HandleExtraRepository_ExistingRepo_DryRun(t *testing.T) {
+func TestPlugin_HandleExtraRepository_ExistingRepo_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
 
 	// Create existing extra repo
 	extraRepoPath := filepath.Join(tmpDir, "extra_repo")
-	require.NoError(t, os.MkdirAll(extraRepoPath, 0755))
+	require.NoError(t, os.MkdirAll(extraRepoPath, 0o755))
 	cmd = exec.Command("git", "init")
 	cmd.Dir = extraRepoPath
 	require.NoError(t, cmd.Run())
@@ -405,13 +406,13 @@ func TestGitPlugin_HandleExtraRepository_ExistingRepo_DryRun(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupGitPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	ctx.DryRun = true
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err := p.handleExtraRepository(execCtx, cfg.ExtraRepos[0])
@@ -428,12 +429,12 @@ func TestGitPlugin_HandleExtraRepository_ExistingRepo_DryRun(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestGitPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
+func TestPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -448,7 +449,7 @@ func TestGitPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
 	require.NoError(t, cmd.Run())
 
 	// Make initial commit to create a branch
-	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# Test"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# Test"), 0o644))
 	cmd = exec.Command("git", "add", "README.md")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -467,13 +468,13 @@ func TestGitPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
 		},
 	}
 
-	p, ctx := setupGitPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 	require.NoError(t, p.Validate())
 
 	execCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err := p.syncMainRepository(execCtx)
@@ -490,12 +491,12 @@ func TestGitPlugin_Execute_SyncMainRepo_NoChanges(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestGitPlugin_Rollback(t *testing.T) {
+func TestPlugin_Rollback(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
-	require.NoError(t, os.MkdirAll(workDir, 0755))
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Initialize git repository
+	// Initialise git repository
 	cmd := exec.Command("git", "init")
 	cmd.Dir = workDir
 	require.NoError(t, cmd.Run())
@@ -505,17 +506,17 @@ func TestGitPlugin_Rollback(t *testing.T) {
 		ExtraRepos:   []core.Repository{},
 	}
 
-	p, ctx := setupGitPlugin(t, workDir, cfg)
+	p, ctx := setupPlugin(t, workDir, cfg)
 
 	// Simulate cloned repos
 	clonedRepo := filepath.Join(tmpDir, "cloned_repo")
-	require.NoError(t, os.MkdirAll(clonedRepo, 0755))
+	require.NoError(t, os.MkdirAll(clonedRepo, 0o755))
 	p.clonedRepos = []string{clonedRepo}
 
 	rollbackCtx := &plugin.ExecutionContext{
-		PluginContext: ctx,
-		Changes:       make([]plugin.Change, 0),
-		Errors:        make([]error, 0),
+		Context: ctx,
+		Changes: make([]plugin.Change, 0),
+		Errors:  make([]error, 0),
 	}
 
 	err := p.Rollback(rollbackCtx)
@@ -533,17 +534,17 @@ func TestGitPlugin_Rollback(t *testing.T) {
 	assert.Empty(t, p.clonedRepos)
 }
 
-func TestGitPlugin_SetupGitAuth_SSHKey(t *testing.T) {
+func TestPlugin_SetupGitAuth_SSHKey(t *testing.T) {
 	tmpDir := t.TempDir()
 	sshKey := filepath.Join(tmpDir, "id_ed25519")
-	require.NoError(t, os.WriteFile(sshKey, []byte("test key"), 0600))
+	require.NoError(t, os.WriteFile(sshKey, []byte("test key"), 0o600))
 
-	p := &GitPlugin{
+	p := &Plugin{
 		sshKey: sshKey,
 	}
 
 	cmd := exec.Command("git", "status")
-	p.setupGitAuth(cmd)
+	_ = p.setupGitAuth(cmd) //nolint:errcheck // Test setup - errors handled by test framework
 
 	// Check that GIT_SSH_COMMAND is set
 	found := false
@@ -557,13 +558,13 @@ func TestGitPlugin_SetupGitAuth_SSHKey(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestGitPlugin_SetupGitAuth_Token(t *testing.T) {
-	p := &GitPlugin{
+func TestPlugin_SetupGitAuth_Token(t *testing.T) {
+	p := &Plugin{
 		gitToken: "test_token",
 	}
 
 	cmd := exec.Command("git", "status")
-	p.setupGitAuth(cmd)
+	_ = p.setupGitAuth(cmd) //nolint:errcheck // Test setup - errors handled by test framework
 
 	// Check that GIT_ASKPASS is set
 	foundAskPass := false

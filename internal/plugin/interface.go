@@ -59,13 +59,12 @@ type Plugin interface {
 	Description() string // Human-readable description
 
 	// Lifecycle hooks
-	Initialize(ctx *PluginContext) error  // Initialize plugin with context
+	Initialise(ctx *Context) error        // Initialise plugin with context
 	Validate() error                      // Validate plugin configuration
 	Execute(ctx *ExecutionContext) error  // Execute plugin logic
 	Rollback(ctx *ExecutionContext) error // Rollback plugin changes on error
 
 	// Dependencies and execution
-	Dependencies() []string    // Names of plugins this plugin depends on
-	Phase() ExecutionPhase     // Execution phase for this plugin
+	Dependencies() []string // Names of plugins this plugin depends on
+	Phase() ExecutionPhase  // Execution phase for this plugin
 }
-

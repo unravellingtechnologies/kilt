@@ -63,7 +63,8 @@ type PluginRecord struct {
 // NewStateManager creates a new state manager
 func NewStateManager(stateDir string) (*StateManager, error) {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	//nolint:gosec // G301: user state directory needs 0755 for user access
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -91,6 +92,7 @@ func NewStateManager(stateDir string) (*StateManager, error) {
 // load loads the state from disk
 func (sm *StateManager) load() error {
 	stateFile := filepath.Join(sm.stateDir, "state.json")
+	//nolint:gosec // G304: stateFile is constructed from validated stateDir, not user input
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
 		return err
@@ -103,7 +105,7 @@ func (sm *StateManager) load() error {
 		return fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
-	// Initialize maps if they're nil (for backward compatibility)
+	// Initialise maps if they're nil (for backward compatibility)
 	if tempDB.RunOnce == nil {
 		tempDB.RunOnce = make(map[string]RunOnceRecord)
 	}
@@ -139,7 +141,8 @@ func (sm *StateManager) save() error {
 	}
 
 	// Write to temp file
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
+	//nolint:gosec // G306: temp state file is user-readable, 0644 is appropriate
+	if err := os.WriteFile(tempFile, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp state file: %w", err)
 	}
 
@@ -163,10 +166,11 @@ func isProcessAlive(pid int) bool {
 // checkAndRemoveStaleLock checks if a lock file exists and is stale (process is dead)
 // Returns true if the lock was removed (stale or invalid), false if lock is valid
 func (sm *StateManager) checkAndRemoveStaleLock(lockPath string) (bool, error) {
+	//nolint:gosec // G304: lockPath is constructed from validated stateDir, not user input
 	data, err := os.ReadFile(lockPath)
 	if err != nil {
 		// Can't read lock file - remove it (might be corrupted)
-		os.Remove(lockPath)
+		_ = os.Remove(lockPath) //nolint:errcheck // Cleanup operation - errors are non-critical
 		return true, nil
 	}
 
@@ -175,14 +179,14 @@ func (sm *StateManager) checkAndRemoveStaleLock(lockPath string) (bool, error) {
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		// Invalid PID format - remove stale lock file
-		os.Remove(lockPath)
+		_ = os.Remove(lockPath) //nolint:errcheck // Cleanup operation - errors are non-critical
 		return true, nil
 	}
 
 	// Check if process is still alive
 	if !isProcessAlive(pid) {
 		// Process is dead - remove stale lock file
-		os.Remove(lockPath)
+		_ = os.Remove(lockPath) //nolint:errcheck // Cleanup operation - errors are non-critical
 		return true, nil
 	}
 
@@ -212,7 +216,8 @@ func (sm *StateManager) AcquireLock() error {
 	}
 
 	// Try to create the lock file
-	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	//nolint:gosec // G302: lock file needs to be readable for PID checking, 0644 is appropriate
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
 		if os.IsExist(err) {
 			// Lock file was created between our check and this attempt (race condition)
@@ -223,7 +228,8 @@ func (sm *StateManager) AcquireLock() error {
 				return checkErr
 			}
 			// Stale lock was removed - retry once
-			lockFile, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+			//nolint:gosec // G302: lock file needs to be readable for PID checking, 0644 is appropriate
+			lockFile, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 			if err != nil {
 				return fmt.Errorf("failed to create lock file after removing stale lock: %w", err)
 			}
@@ -235,8 +241,8 @@ func (sm *StateManager) AcquireLock() error {
 	// Write PID to lock file for debugging
 	pid := fmt.Sprintf("%d\n", os.Getpid())
 	if _, err := lockFile.WriteString(pid); err != nil {
-		lockFile.Close()
-		os.Remove(lockPath)
+		_ = lockFile.Close()    //nolint:errcheck // Cleanup in error path
+		_ = os.Remove(lockPath) //nolint:errcheck // Cleanup in error path
 		return fmt.Errorf("failed to write PID to lock file: %w", err)
 	}
 
@@ -363,11 +369,17 @@ func (sm *StateManager) DeleteRunOnceRecord(taskID string) error {
 
 // CalculateChecksum calculates SHA256 checksum of a file
 func CalculateChecksum(filePath string) (string, error) {
+	//nolint:gosec // G304: filePath comes from validated file operations, not user input
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Close errors on read-only files are rare and non-critical
+			_ = closeErr
+		}
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {

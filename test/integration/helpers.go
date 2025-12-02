@@ -9,8 +9,6 @@ import (
 
 	"github.com/unravelling/kilt/internal/core"
 	"github.com/unravelling/kilt/internal/plugin"
-	
-	// Import plugins to trigger their registration
 	_ "github.com/unravelling/kilt/internal/plugins/alternates"
 	_ "github.com/unravelling/kilt/internal/plugins/brew"
 	_ "github.com/unravelling/kilt/internal/plugins/directories"
@@ -57,7 +55,7 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 		repoPath,
 		filepath.Join(repoPath, ".kilt"),
 	} {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -107,17 +105,17 @@ func (te *TestEnvironment) CopyFixtureRepo(t *testing.T, fixturePath string) {
 		t.Fatalf("Failed to copy fixture repository: %v", err)
 	}
 
-	// Initialize as git repository
+	// Initialise as git repository
 	if err := te.InitGitRepo(t); err != nil {
-		t.Fatalf("Failed to initialize git repository: %v", err)
+		t.Fatalf("Failed to initialise git repository: %v", err)
 	}
 }
 
-// InitGitRepo initializes the repository as a git repository
+// InitGitRepo initialises the repository as a git repository
 func (te *TestEnvironment) InitGitRepo(t *testing.T) error {
 	t.Helper()
 
-	// Initialize git repo
+	// Initialise git repo
 	cmd := exec.Command("git", "init")
 	cmd.Dir = te.RepoPath
 	if err := cmd.Run(); err != nil {
@@ -158,6 +156,7 @@ func (te *TestEnvironment) CloneRepoToDotfiles(t *testing.T) error {
 	t.Helper()
 
 	// Clone repo to dotfiles directory
+	//nolint:gosec // G204: te.RepoPath and te.DotfilesDir are test-controlled paths, not user input
 	cmd := exec.Command("git", "clone", te.RepoPath, te.DotfilesDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
@@ -185,7 +184,7 @@ func (te *TestEnvironment) LoadConfig(t *testing.T) *core.Config {
 }
 
 // CreateEngine creates an engine instance with the test configuration
-func (te *TestEnvironment) CreateEngine(t *testing.T, registry *plugin.PluginRegistry) *core.Engine {
+func (te *TestEnvironment) CreateEngine(t *testing.T, registry *plugin.Registry) *core.Engine {
 	t.Helper()
 
 	config := te.LoadConfig(t)

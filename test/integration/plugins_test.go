@@ -108,7 +108,7 @@ func TestAlternatesPlugin(t *testing.T) {
 
 	// Create an alternate file (e.g., for macOS)
 	alternateFile := filepath.Join(env.DotfilesDir, "zsh", ".zshrc.mac")
-	if err := os.WriteFile(alternateFile, []byte("# macOS specific zshrc\n"), 0644); err != nil {
+	if err := os.WriteFile(alternateFile, []byte("# macOS specific zshrc\n"), 0o644); err != nil {
 		t.Fatalf("Failed to create alternate file: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestAlternatesPlugin(t *testing.T) {
 	}
 
 	// Alternates plugin should resolve the correct file based on OS
-	// The exact behavior depends on the current OS, but it should at least not fail
+	// The exact behaviour depends on the current OS, but it should at least not fail
 	if !result.Success {
 		t.Errorf("Execution should succeed with alternates: %v", result.Errors)
 	}

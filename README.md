@@ -1,9 +1,9 @@
 # Kilt
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/unravellingtechnologies/kilt?utm_source=oss&utm_medium=github&utm_campaign=unravellingtechnologies%2Fkilt&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/unravellingtechnologies/kilt?utm_source=oss&utm_medium=github&utm_campaign=unravellingtechnologies%2Fkilt&labelcolour=171717&colour=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 **Bootstrap manager for Mac. Think dot files management, but with a beard**
 
-A Git-first, curl-installable bootstrapper that transforms a fresh macOS (or Linux) system into a personalized development environment using a single command. Kilt emphasizes idempotency, safety, and extensibility through a plugin architecture.
+A Git-first, curl-installable bootstrapper that transforms a fresh macOS (or Linux) system into a personalised development environment using a single command. Kilt emphasizes idempotency, safety, and extensibility through a plugin architecture.
 
 ## Vision
 
@@ -30,7 +30,7 @@ This command will:
 curl -L https://github.com/unravellingtechnologies/kilt/releases/latest/download/kilt-darwin-arm64 -o /usr/local/bin/kilt
 chmod +x /usr/local/bin/kilt
 
-# Initialize with your repository
+# Initialise with your repository
 kilt init https://github.com/you/dotfiles
 
 # Sync your dotfiles
@@ -74,7 +74,7 @@ make install
    git push -u origin main
    ```
 
-4. **Install and initialize**:
+4. **Install and initialise**:
    ```bash
    curl -sL https://get.kilt.pro | bash -s -- https://github.com/yourusername/dotfiles
    ```
@@ -111,8 +111,8 @@ Secrets are never stored in Git. Use 1Password CLI integration to inject secrets
 
 ### 🧩 Plugin Architecture
 Extensible plugin system allows modular feature additions:
-- **Dotfiles Plugin** ✅: Symlink-based dotfile synchronization with directory support and smart dot-prefixing
-- **Git Plugin** ✅: Bidirectional Git synchronization (pull remote changes, push local changes)
+- **Dotfiles Plugin** ✅: Symlink-based dotfile synchronisation with directory support and smart dot-prefixing
+- **Git Plugin** ✅: Bidirectional Git synchronisation (pull remote changes, push local changes)
 - **Alternates Plugin** ✅: OS/hostname-based file selection for explicit dotfile mappings
 - **Directories Plugin** ✅: Ensure directories exist with proper permissions
 - **Run Once Plugin** ✅: Execute bootstrap scripts exactly once per machine
@@ -256,7 +256,7 @@ plugins:
 
 ### Dotfiles Plugin
 
-The Dotfiles Plugin is the core plugin for managing dotfile synchronization. It supports:
+The Dotfiles Plugin is the core plugin for managing dotfile synchronisation. It supports:
 
 - **Directory-based syncing**: Link all files in a directory to your home directory
 - **Symlink creation**: Creates symlinks (not copies) by default for all dotfiles
@@ -386,7 +386,7 @@ plugins:
 - Execution stops on first failure (other plugins may rollback)
 - Script output (stdout/stderr) is captured and stored for debugging
 
-**Retry Behavior**:
+**Retry behaviour**:
 The `retry_on_failure` option controls whether failed scripts can be automatically retried:
 
 - **`retry_on_failure: false`** (default): Failed scripts are saved to a failures record but not marked as completed. They will be retried automatically on the next `kilt sync` run. This is useful for transient failures (network issues, temporary service unavailability, etc.).
@@ -505,8 +505,8 @@ Kilt provides a comprehensive set of commands for managing your dotfiles. Here's
 
 ### Core Commands
 
-- **`kilt init <repo-url>`** - Initialize from Git repository
-- **`kilt sync`** - Synchronize dotfiles bidirectionally
+- **`kilt init <repo-url>`** - Initialise from Git repository
+- **`kilt sync`** - Synchronise dotfiles bidirectionally
 - **`kilt doctor`** - Validate setup and dependencies
 - **`kilt version`** - Show version information
 
@@ -534,18 +534,18 @@ All commands support these global flags:
 - `--verbose, -v` - Detailed logging output
 - `--debug` - Enable debug logging (includes verbose, shows timestamps)
 - `--config <path>` - Custom config file location
-- `--no-color` - Disable colored output
+- `--no-colour` - Disable coloured output
 - `--force` - Skip confirmation prompts
 
 ### Logging and Output
 
-Kilt provides structured logging with color support:
+Kilt provides structured logging with colour support:
 
-- **Colorized output**: Success messages (green), errors (red), warnings (yellow), info (blue)
+- **colourized output**: Success messages (green), errors (red), warnings (yellow), info (blue)
 - **Log levels**: Debug, Info, Warn, Error
 - **Progress indicators**: Progress bars for long operations, spinners for indeterminate tasks
 - **Error messages**: Helpful error messages with suggestions and context
-- **Respects `--no-color`**: Automatically disables colors when output is not a terminal
+- **Respects `--no-colour`**: Automatically disables colours when output is not a terminal
 
 Example output:
 ```text
@@ -559,7 +559,7 @@ Suggestion: Check file permissions with 'ls -la ~/.zshrc'
 ### Examples
 
 ```bash
-# Initialize from repository
+# Initialise from repository
 kilt init https://github.com/yourusername/dotfiles
 
 # Sync dotfiles

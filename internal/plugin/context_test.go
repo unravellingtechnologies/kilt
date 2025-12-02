@@ -32,22 +32,25 @@ type mockLogger struct {
 func (m *mockLogger) Debug(msg string, fields ...interface{}) {
 	m.debugLogs = append(m.debugLogs, msg)
 }
+
 func (m *mockLogger) Info(msg string, fields ...interface{}) {
 	m.infoLogs = append(m.infoLogs, msg)
 }
+
 func (m *mockLogger) Warn(msg string, fields ...interface{}) {
 	m.warnLogs = append(m.warnLogs, msg)
 }
+
 func (m *mockLogger) Error(msg string, fields ...interface{}) {
 	m.errorLogs = append(m.errorLogs, msg)
 }
 
 func TestExecutionContext_AddChange(t *testing.T) {
 	ctx := &ExecutionContext{
-		PluginContext: &PluginContext{},
-		Changes:       []Change{},
-		Errors:        []error{},
-		StartTime:     time.Now(),
+		Context:   &Context{},
+		Changes:   []Change{},
+		Errors:    []error{},
+		StartTime: time.Now(),
 	}
 
 	change := Change{
@@ -68,10 +71,10 @@ func TestExecutionContext_AddChange(t *testing.T) {
 
 func TestExecutionContext_AddError(t *testing.T) {
 	ctx := &ExecutionContext{
-		PluginContext: &PluginContext{},
-		Changes:       []Change{},
-		Errors:        []error{},
-		StartTime:     time.Now(),
+		Context:   &Context{},
+		Changes:   []Change{},
+		Errors:    []error{},
+		StartTime: time.Now(),
 	}
 
 	err1 := errors.New("error 1")
@@ -107,10 +110,10 @@ func TestExecutionContext_HasErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &ExecutionContext{
-				PluginContext: &PluginContext{},
-				Changes:       []Change{},
-				Errors:        tt.errors,
-				StartTime:     time.Now(),
+				Context:   &Context{},
+				Changes:   []Change{},
+				Errors:    tt.errors,
+				StartTime: time.Now(),
 			}
 
 			assert.Equal(t, tt.want, ctx.HasErrors())

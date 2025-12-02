@@ -89,6 +89,7 @@ func DefaultDotfilesPath() string {
 
 // LoadConfig loads and parses a YAML configuration file
 func LoadConfig(path string) (*Config, error) {
+	//nolint:gosec // G304: path comes from user config file location (validated), not arbitrary user input
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)

@@ -8,13 +8,13 @@
 
 set -euo pipefail
 
-# Colors for output (respect NO_COLOR env var)
-if [[ -t 1 ]] && [[ "${NO_COLOR:-}" == "" ]]; then
+# colours for output (respect NO_colour env var)
+if [[ -t 1 ]] && [[ "${NO_colour:-}" == "" ]]; then
   RED='\033[0;31m'
   GREEN='\033[0;32m'
   YELLOW='\033[1;33m'
   BLUE='\033[0;34m'
-  NC='\033[0m' # No Color
+  NC='\033[0m' # No colour
 else
   RED=''
   GREEN=''
@@ -362,12 +362,12 @@ bootstrap_repo() {
     fi
   fi
   
-  log_info "Initializing Kilt with repository..."
+  log_info "Initialising Kilt with repository..."
   if "${kilt_cmd}" init "${repo_url}"; then
-    log_success "Repository initialized successfully"
+    log_success "Repository initialised successfully"
     log_info "Run 'kilt sync' to apply your configuration"
   else
-    log_error "Failed to initialize repository"
+    log_error "Failed to initialise repository"
     return 1
   fi
 }

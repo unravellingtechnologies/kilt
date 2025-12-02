@@ -15,7 +15,7 @@ Kilt uses a plugin architecture where all features are implemented as plugins. T
 
 ## Dotfiles Plugin
 
-The Dotfiles Plugin is the core plugin for managing dotfile synchronization. It creates symlinks from your dotfiles repository to your home directory.
+The Dotfiles Plugin is the core plugin for managing dotfile synchronisation. It creates symlinks from your dotfiles repository to your home directory.
 
 ### Features
 
@@ -80,7 +80,7 @@ directories:
   - ~/.local/bin
 ```
 
-### Behavior
+### behaviour
 
 - Directories are created if they don't exist
 - Parent directories are created automatically
@@ -158,7 +158,7 @@ on_change:
   - echo "Configuration updated"
 ```
 
-### Behavior
+### behaviour
 
 - Commands execute when files change (detected via checksums)
 - Commands run in the order specified

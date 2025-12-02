@@ -18,7 +18,7 @@ type Plugin interface {
     Description() string
     
     // Lifecycle hooks
-    Initialize(ctx *PluginContext) error
+    Initialise(ctx *Context) error
     Validate() error
     Execute(ctx *ExecutionContext) error
     Rollback(ctx *ExecutionContext) error
@@ -45,7 +45,7 @@ Within each phase, plugins are topologically sorted based on their dependencies.
 ## Plugin Lifecycle
 
 ```
-Registration → Initialize → Validate → Execute → Cleanup
+Registration → Initialise → Validate → Execute → Cleanup
                    ↓            ↓          ↓
                  Error ←────────┴──────────┴──→ Rollback
 ```
@@ -64,15 +64,15 @@ func init() {
 }
 ```
 
-### 2. Initialize
+### 2. Initialise
 
-The `Initialize()` method is called once during system startup. Use this to:
+The `Initialise()` method is called once during system startup. Use this to:
 - Store references to shared context
 - Validate plugin configuration
 - Prepare any required resources
 
 ```go
-func (p *MyPlugin) Initialize(ctx *plugin.PluginContext) error {
+func (p *MyPlugin) Initialise(ctx *plugin.Context) error {
     p.ctx = ctx
     config := plugin.GetPluginConfig(ctx.Config, p.Name())
     // Process configuration...
@@ -122,12 +122,12 @@ func (p *MyPlugin) Rollback(ctx *plugin.ExecutionContext) error {
 
 ## Plugin Contexts
 
-### PluginContext
+### Context
 
 Provided during initialization and contains shared resources:
 
 ```go
-type PluginContext struct {
+type Context struct {
     Config       Config        // Configuration access
     State        StateManager  // State management
     Backup       BackupManager // Backup operations
@@ -141,11 +141,11 @@ type PluginContext struct {
 
 ### ExecutionContext
 
-Provided during execution and extends PluginContext:
+Provided during execution and extends Context:
 
 ```go
 type ExecutionContext struct {
-    *PluginContext
+    *Context
     Changes   []Change  // Changes made by plugins
     Errors    []error   // Errors collected
     StartTime time.Time // Execution start time
@@ -169,7 +169,7 @@ func (p *MyPlugin) Dependencies() []string {
 
 Dependencies ensure:
 - Plugins execute in the correct order
-- Dependencies are initialized before dependents
+- Dependencies are initialised before dependents
 - Circular dependencies are detected and rejected
 
 ## Example Plugin
@@ -185,7 +185,7 @@ import (
 )
 
 type MyPlugin struct {
-    ctx            *plugin.PluginContext
+    ctx            *plugin.Context
     configValue    string
 }
 
@@ -213,7 +213,7 @@ func (p *MyPlugin) Phase() plugin.ExecutionPhase {
     return plugin.PhaseCore
 }
 
-func (p *MyPlugin) Initialize(ctx *plugin.PluginContext) error {
+func (p *MyPlugin) Initialise(ctx *plugin.Context) error {
     p.ctx = ctx
     config := plugin.GetPluginConfig(ctx.Config, p.Name())
     if val, ok := config["value"].(string); ok {
@@ -271,7 +271,7 @@ value := config["value"].(string)
 
 1. **Idempotency**: Make your plugin idempotent - running it multiple times should produce the same result.
 
-2. **Dry Run**: Respect the `DryRun` flag in `PluginContext`. Don't make changes when `DryRun` is true.
+2. **Dry Run**: Respect the `DryRun` flag in `Context`. Don't make changes when `DryRun` is true.
 
 3. **Error Handling**: Always return errors, never panic. Use `ExecutionContext.AddError()` to collect non-fatal errors.
 
@@ -283,7 +283,7 @@ value := config["value"].(string)
 
 7. **Validation**: Always validate configuration and state in the `Validate()` method.
 
-8. **Documentation**: Document your plugin's configuration options and behavior.
+8. **Documentation**: Document your plugin's configuration options and behaviour.
 
 ## Testing
 
@@ -293,20 +293,20 @@ Create unit tests for your plugin:
 func TestMyPlugin(t *testing.T) {
     plugin := &MyPlugin{}
     
-    ctx := &plugin.PluginContext{
+    ctx := &plugin.Context{
         Config: &mockConfig{},
         Logger: &mockLogger{},
         // ...
     }
     
-    err := plugin.Initialize(ctx)
+    err := plugin.Initialise(ctx)
     assert.NoError(t, err)
     
     err = plugin.Validate()
     assert.NoError(t, err)
     
     execCtx := &plugin.ExecutionContext{
-        PluginContext: ctx,
+        Context: ctx,
         Changes: []plugin.Change{},
         Errors:  []error{},
         StartTime: time.Now(),
@@ -330,7 +330,7 @@ func init() {
 The plugin system will automatically:
 - Register your plugin
 - Validate dependencies
-- Initialize and validate it
+- Initialise and validate it
 - Execute it in the correct order
 
 ## Common Patterns

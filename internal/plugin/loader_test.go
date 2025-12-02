@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockPluginContext creates a minimal PluginContext for testing
-func mockPluginContext() *PluginContext {
-	return &PluginContext{
+// mockContext creates a minimal Context for testing
+func mockContext() *Context {
+	return &Context{
 		Config:   &mockConfig{pluginConfigs: make(map[string]map[string]interface{})},
 		State:    nil,
 		Backup:   nil,
@@ -22,11 +22,11 @@ func mockPluginContext() *PluginContext {
 	}
 }
 
-func TestPluginLoader_LoadPlugins(t *testing.T) {
+func TestLoader_LoadPlugins(t *testing.T) {
 	registry := NewRegistry()
 	loader := NewLoader(registry)
 
-	// Create a mock plugin that initializes successfully
+	// Create a mock plugin that initialises successfully
 	mockPlugin := &mockPlugin{
 		name:        "test-plugin",
 		version:     "1.0.0",
@@ -34,22 +34,22 @@ func TestPluginLoader_LoadPlugins(t *testing.T) {
 		phase:       PhaseCore,
 	}
 
-	registry.Register(mockPlugin)
+	_ = registry.Register(mockPlugin) //nolint:errcheck // Test setup - errors handled by test framework
 
-	ctx := mockPluginContext()
+	ctx := mockContext()
 
 	err := loader.LoadPlugins(ctx)
 	require.NoError(t, err)
 
-	assert.True(t, mockPlugin.initialized, "LoadPlugins() plugin.Initialize() was not called")
+	assert.True(t, mockPlugin.initialised, "LoadPlugins() plugin.Initialise() was not called")
 	assert.True(t, mockPlugin.validated, "LoadPlugins() plugin.Validate() was not called")
 }
 
-func TestPluginLoader_LoadPlugins_InitializationError(t *testing.T) {
+func TestLoader_LoadPlugins_InitialisationError(t *testing.T) {
 	registry := NewRegistry()
 	loader := NewLoader(registry)
 
-	// Create a plugin that fails to initialize
+	// Create a plugin that fails to initialise
 	mockPlugin := &failingMockPlugin{
 		mockPlugin: mockPlugin{
 			name:        "failing-plugin",
@@ -60,15 +60,15 @@ func TestPluginLoader_LoadPlugins_InitializationError(t *testing.T) {
 		initError: errors.New("initialization failed"),
 	}
 
-	registry.Register(mockPlugin)
+	_ = registry.Register(mockPlugin) //nolint:errcheck // Test setup - errors handled by test framework
 
-	ctx := mockPluginContext()
+	ctx := mockContext()
 
 	err := loader.LoadPlugins(ctx)
 	assert.Error(t, err)
 }
 
-func TestPluginLoader_LoadPlugins_ValidationError(t *testing.T) {
+func TestLoader_LoadPlugins_ValidationError(t *testing.T) {
 	registry := NewRegistry()
 	loader := NewLoader(registry)
 
@@ -83,9 +83,9 @@ func TestPluginLoader_LoadPlugins_ValidationError(t *testing.T) {
 		validateError: errors.New("validation failed"),
 	}
 
-	registry.Register(mockPlugin)
+	_ = registry.Register(mockPlugin) //nolint:errcheck // Test setup - errors handled by test framework
 
-	ctx := mockPluginContext()
+	ctx := mockContext()
 
 	err := loader.LoadPlugins(ctx)
 	assert.Error(t, err)
@@ -118,11 +118,11 @@ type failingMockPlugin struct {
 	validateError error
 }
 
-func (f *failingMockPlugin) Initialize(ctx *PluginContext) error {
+func (f *failingMockPlugin) Initialise(ctx *Context) error {
 	if f.initError != nil {
 		return f.initError
 	}
-	return f.mockPlugin.Initialize(ctx)
+	return f.mockPlugin.Initialise(ctx)
 }
 
 func (f *failingMockPlugin) Validate() error {
