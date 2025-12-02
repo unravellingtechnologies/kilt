@@ -155,7 +155,16 @@ func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 
 	for _, repo := range cfg.ExtraRepos {
 		if err := p.handleExtraRepository(ctx, repo); err != nil {
-			return fmt.Errorf("failed to handle extra repository %s: %w", repo.URL, err)
+			// For extra repos, clone failures are non-fatal - log and continue
+			// This allows the tool to work even if optional extra repos are unavailable
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("Failed to handle extra repository, skipping",
+					"url", repo.URL,
+					"path", repo.Path,
+					"error", err)
+			}
+			// Continue with other repos instead of failing the entire sync
+			continue
 		}
 	}
 

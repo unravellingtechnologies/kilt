@@ -5,6 +5,13 @@ version: "2"
 run:
   timeout: 5m
   tests: true
+  skip-dirs:
+    - vendor
+    - bin
+    - test
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.pb\\.gw\\.go$"
 
 formatters:
   enable:
@@ -27,7 +34,6 @@ formatters:
         - prefix(github.com/unravelling/kilt)
 
 linters:
-  disable-all: true
   enable:
     # Official linters
     - govet
@@ -123,7 +129,7 @@ linters:
       min-occurrences: 3
 
     misspell:
-      locale: GB
+      locale: UK
 
     revive:
       rules:
@@ -158,20 +164,5 @@ linters:
         - G307 # Defer without recovery allowed
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  exclude-dirs:
-    - vendor
-    - bin
-    - test
-
-  exclude-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.pb\\.gw\\.go$"
-
-  exclude-rules: []
-
-  exclude:
-    # No global exclusions - all production code errors should be explicitly handled or ignored

@@ -68,6 +68,18 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 		t.Fatalf("Failed to set HOME: %v", err)
 	}
 
+	// Configure git user globally (required for git operations in CI)
+	// This ensures git commits work even when running in isolated environments
+	cmd := exec.Command("git", "config", "--global", "user.name", "Test User")
+	if err := cmd.Run(); err != nil {
+		t.Logf("Warning: Failed to configure global git user.name: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "--global", "user.email", "test@example.com")
+	if err := cmd.Run(); err != nil {
+		t.Logf("Warning: Failed to configure global git user.email: %v", err)
+	}
+
 	return &TestEnvironment{
 		RootDir:      rootDir,
 		HomeDir:      homeDir,
