@@ -178,19 +178,17 @@ func TestRecoveryAfterError(t *testing.T) {
 		t.Error("Expected error when config is missing")
 	}
 
-	// Restore config file
-	env.CopyFixtureRepo(t, fixturePath)
-
-	// Now it should work
-	config := env.LoadConfig(t)
-	if config == nil {
-		t.Fatal("Config should load after recovery")
+	// Restore config file by re-cloning to dotfiles directory
+	// (CopyFixtureRepo only updates RepoPath, not DotfilesDir)
+	if err := os.RemoveAll(env.DotfilesDir); err != nil {
+		t.Fatalf("Failed to remove dotfiles dir: %v", err)
+	}
+	if err := env.CloneRepoToDotfiles(t); err != nil {
+		t.Fatalf("Failed to re-clone repository: %v", err)
 	}
 
-	engine, err := core.NewEngine(config, registry)
-	if err != nil {
-		t.Fatalf("Failed to create engine after recovery: %v", err)
-	}
+	// Now it should work - use CreateEngine helper to set up working directory correctly
+	engine := env.CreateEngine(t, registry)
 
 	result, err := engine.Execute()
 	if err != nil {

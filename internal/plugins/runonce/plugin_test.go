@@ -314,16 +314,16 @@ exit 1
 	err := p.Execute(execCtx)
 	assert.Error(t, err, "Execute() should return error when script fails")
 
-	// Verify failure was recorded in state
+	// By default (retry_on_failure = false), failed tasks are NOT marked as completed
+	// This allows them to be retried on the next run
 	taskID := generateTaskIDForTest(scriptPath)
-	assert.True(t, ctx.State.IsTaskCompleted(taskID), "Script failure should be recorded in state")
+	assert.False(t, ctx.State.IsTaskCompleted(taskID), "Failed task should NOT be marked as completed (allows retry)")
 
-	// Verify the record shows failure
+	// The failure is recorded in the Failures map, not the RunOnce map
+	// GetRunOnceRecord only checks RunOnce, so it won't find the failure record
 	recordInterface, exists := ctx.State.GetRunOnceRecord(taskID)
-	require.True(t, exists, "Record should exist")
-	record, ok := recordInterface.(*core.RunOnceRecord)
-	require.True(t, ok, "Record should be RunOnceRecord type")
-	assert.Equal(t, 1, record.ExitCode)
+	assert.False(t, exists, "Failed task record should not be in RunOnce map")
+	assert.Nil(t, recordInterface)
 }
 
 func TestPlugin_Execute_MultipleScripts(t *testing.T) {

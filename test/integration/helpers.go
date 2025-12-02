@@ -123,9 +123,37 @@ func (te *TestEnvironment) CopyFixtureRepo(t *testing.T, fixturePath string) {
 	}
 }
 
-// InitGitRepo initialises the repository as a git repository
+// InitGitRepo initialises the repository as a git repository (idempotent)
 func (te *TestEnvironment) InitGitRepo(t *testing.T) error {
 	t.Helper()
+
+	// Check if already a git repository
+	gitDir := filepath.Join(te.RepoPath, ".git")
+	if _, err := os.Stat(gitDir); err == nil {
+		// Already initialized - just ensure config is set and commit any new files
+		cmd := exec.Command("git", "config", "user.name", "Test User")
+		cmd.Dir = te.RepoPath
+		_ = cmd.Run() // Ignore errors - config may already be set
+
+		cmd = exec.Command("git", "config", "user.email", "test@example.com")
+		cmd.Dir = te.RepoPath
+		_ = cmd.Run()
+
+		cmd = exec.Command("git", "config", "receive.denyCurrentBranch", "ignore")
+		cmd.Dir = te.RepoPath
+		_ = cmd.Run()
+
+		// Add and commit any new files (ignore errors if nothing to commit)
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = te.RepoPath
+		_ = cmd.Run()
+
+		cmd = exec.Command("git", "commit", "-m", "Update files")
+		cmd.Dir = te.RepoPath
+		_ = cmd.Run() // May fail if nothing to commit - that's OK
+
+		return nil
+	}
 
 	// Initialise git repo
 	cmd := exec.Command("git", "init")
@@ -145,6 +173,14 @@ func (te *TestEnvironment) InitGitRepo(t *testing.T) error {
 	cmd.Dir = te.RepoPath
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to configure git email: %w", err)
+	}
+
+	// Allow pushing to the checked-out branch (required for test scenarios where
+	// we clone from a non-bare repo and push back to it)
+	cmd = exec.Command("git", "config", "receive.denyCurrentBranch", "ignore")
+	cmd.Dir = te.RepoPath
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to configure receive.denyCurrentBranch: %w", err)
 	}
 
 	// Add all files and create initial commit
@@ -200,6 +236,24 @@ func (te *TestEnvironment) CreateEngine(t *testing.T, registry *plugin.Registry)
 	t.Helper()
 
 	config := te.LoadConfig(t)
+
+	// Change to dotfiles directory so relative paths in config (e.g., scripts/install.sh)
+	// are resolved correctly. This matches real-world usage where kilt operates
+	// with the dotfiles directory as the working directory.
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+	if err := os.Chdir(te.DotfilesDir); err != nil {
+		t.Fatalf("Failed to change to dotfiles directory: %v", err)
+	}
+	t.Cleanup(func() {
+		// Restore original working directory after test
+		if err := os.Chdir(originalWd); err != nil {
+			t.Logf("Warning: Failed to restore working directory: %v", err)
+		}
+	})
+
 	engine, err := core.NewEngine(config, registry)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
