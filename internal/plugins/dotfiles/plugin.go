@@ -232,9 +232,7 @@ func (p *Plugin) processTemplateFile(sourcePath, targetPath string, entry core.D
 		if p.ctx.Backup != nil {
 			_, _, err := p.ctx.Backup.CreateBackup([]string{targetPath}, "kilt: backup before template update")
 			if err != nil {
-				if p.ctx.Logger != nil {
-					p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
-				}
+				return fmt.Errorf("failed to backup existing file %s before template update: %w", targetPath, err)
 			}
 		}
 	}
@@ -301,12 +299,10 @@ func (p *Plugin) createSymlink(sourcePath, targetPath string, ctx *plugin.Execut
 			if p.ctx.Backup != nil {
 				_, _, err := p.ctx.Backup.CreateBackup([]string{targetPath}, "kilt: backup before symlink creation")
 				if err != nil {
-					if p.ctx.Logger != nil {
-						p.ctx.Logger.Warn("Failed to create backup", "file", targetPath, "error", err)
-					}
+					return fmt.Errorf("failed to backup existing file %s before replacement: %w", targetPath, err)
 				}
 			}
-			// Remove existing file (always attempt, regardless of backup success/failure)
+			// Remove existing file after successful backup
 			if err := os.Remove(targetPath); err != nil {
 				return fmt.Errorf("failed to remove existing file: %w", err)
 			}

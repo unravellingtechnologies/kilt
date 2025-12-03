@@ -7,6 +7,9 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)"
 GOOS?=$(shell go env GOOS)
 GOARCH?=$(shell go env GOARCH)
+CMD_PATH=./cmd/kilt
+BIN_DIR=bin
+COVERAGE_DIR=coverage
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -16,20 +19,22 @@ help: ## Show this help message
 
 build: ## Build the binary for current platform
 	@echo "Building $(BINARY_NAME) for $(GOOS)/$(GOARCH)..."
-	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/kilt
-	@echo "Binary created: bin/$(BINARY_NAME)"
+	@mkdir -p $(BIN_DIR)
+	go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_PATH)
+	@echo "Binary created: $(BIN_DIR)/$(BINARY_NAME)"
 
 build-all: ## Build binaries for all supported platforms
 	@echo "Building for all platforms..."
-	@mkdir -p bin
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-darwin-amd64 ./cmd/kilt
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-darwin-arm64 ./cmd/kilt
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux-amd64 ./cmd/kilt
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux-arm64 ./cmd/kilt
-	@echo "All binaries created in bin/"
+	@mkdir -p $(BIN_DIR)
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-amd64 $(CMD_PATH)
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-arm64 $(CMD_PATH)
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_PATH)
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-arm64 $(CMD_PATH)
+	@echo "All binaries created in $(BIN_DIR)/"
 
 test: ## Run tests
-	go test -v -race -coverprofile=coverage.out ./...
+	@mkdir -p $(COVERAGE_DIR)
+	go test -v -race -coverprofile=$(COVERAGE_DIR)/coverage.out ./...
 
 test-integration: ## Run integration tests
 	go test -v -race ./test/integration/...
@@ -37,8 +42,9 @@ test-integration: ## Run integration tests
 test-all: test test-integration ## Run all tests (unit + integration)
 
 test-coverage: test ## Run tests with coverage report
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@mkdir -p $(COVERAGE_DIR)
+	go tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
+	@echo "Coverage report generated: $(COVERAGE_DIR)/coverage.html"
 
 lint: ## Run linters
 	@echo "Running golangci-lint..."
@@ -65,19 +71,19 @@ install: build ## Install binary to $GOPATH/bin or /usr/local/bin
 	@echo "Installing $(BINARY_NAME)..."
 	@mkdir -p ~/.local/bin || mkdir -p /usr/local/bin
 	@if [ -w /usr/local/bin ]; then \
-		cp bin/$(BINARY_NAME) /usr/local/bin/$(BINARY_NAME); \
+		cp $(BIN_DIR)/$(BINARY_NAME) /usr/local/bin/$(BINARY_NAME); \
 		echo "Installed to /usr/local/bin/$(BINARY_NAME)"; \
 	else \
-		cp bin/$(BINARY_NAME) ~/.local/bin/$(BINARY_NAME); \
+		cp $(BIN_DIR)/$(BINARY_NAME) ~/.local/bin/$(BINARY_NAME); \
 		echo "Installed to ~/.local/bin/$(BINARY_NAME)"; \
 	fi
 
 run: build ## Build and run the binary
-	./bin/$(BINARY_NAME)
+	./$(BIN_DIR)/$(BINARY_NAME)
 
 clean: ## Clean build artifacts
-	rm -rf bin/
-	rm -f coverage.out coverage.html
+	rm -rf $(BIN_DIR)/
+	rm -rf $(COVERAGE_DIR)/
 	@echo "Cleaned build artifacts"
 
 deps: ## Download dependencies

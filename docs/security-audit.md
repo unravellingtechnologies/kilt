@@ -77,11 +77,6 @@ func ValidatePath(path string) error {
         return err
     }
     
-    // Check for directory traversal
-    if strings.Contains(absPath, "..") {
-        return ErrInvalidPath
-    }
-    
     // Ensure within allowed directories
     if !isAllowedPath(absPath) {
         return ErrForbiddenPath
@@ -89,7 +84,6 @@ func ValidatePath(path string) error {
     
     return nil
 }
-```
 
 ### ✅ Path Traversal Protection
 

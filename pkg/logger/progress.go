@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -36,6 +38,9 @@ func NewProgressBar(total int, label string, colourized bool) *ProgressBar {
 // Update updates the progress bar
 func (p *ProgressBar) Update(current int) {
 	p.current = current
+	if p.current > p.total {
+		p.current = p.total
+	}
 	p.render()
 }
 
@@ -126,10 +131,12 @@ type Spinner struct {
 	output     io.Writer
 	colourized bool
 	message    string
+	mu         sync.Mutex // protects message field
 	stop       chan bool
 	done       chan bool
 	frames     []string
 	frame      int
+	started    uint32 // atomic flag: 0 = not started, 1 = started
 }
 
 // NewSpinner creates a new spinner
@@ -147,32 +154,54 @@ func NewSpinner(message string, colourized bool) *Spinner {
 
 // Start starts the spinner
 func (s *Spinner) Start() {
-	go s.run()
+	if atomic.CompareAndSwapUint32(&s.started, 0, 1) {
+		go s.run()
+	}
 }
 
-// Stop stops the spinner
+// Stop stops the spinner. It is safe to call Stop() even if Start() was never called,
+// and it is idempotent (multiple calls are safe).
 func (s *Spinner) Stop() {
-	s.stop <- true
-	<-s.done
-	_, _ = fmt.Fprintf(s.output, "\r\033[K") //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
+	// Return immediately if not started
+	if atomic.LoadUint32(&s.started) == 0 {
+		return
+	}
+
+	// Only one goroutine can successfully stop (idempotent)
+	if atomic.CompareAndSwapUint32(&s.started, 1, 0) {
+		s.stop <- true
+		<-s.done
+		_, _ = fmt.Fprintf(s.output, "\r\033[K") //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
+	}
 }
 
 // run runs the spinner animation
 func (s *Spinner) run() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	defer func() {
+		// Ensure done is always signalled, even if Stop() wasn't called
+		atomic.StoreUint32(&s.started, 0)
+		select {
+		case s.done <- true:
+		default:
+			// Channel already closed or another goroutine already signalled
+		}
+	}()
 
 	for {
 		select {
 		case <-s.stop:
-			s.done <- true
 			return
 		case <-ticker.C:
 			frame := s.frames[s.frame%len(s.frames)]
 			if s.colourized {
 				frame = "\033[36m" + frame + "\033[0m" // Cyan
 			}
-			_, _ = fmt.Fprintf(s.output, "\r\033[K%s %s", frame, s.message) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
+			s.mu.Lock()
+			message := s.message
+			s.mu.Unlock()
+			_, _ = fmt.Fprintf(s.output, "\r\033[K%s %s", frame, message) //nolint:errcheck // Writing to stderr rarely fails and is non-recoverable
 			s.frame++
 		}
 	}
@@ -180,5 +209,7 @@ func (s *Spinner) run() {
 
 // UpdateMessage updates the spinner message
 func (s *Spinner) UpdateMessage(message string) {
+	s.mu.Lock()
 	s.message = message
+	s.mu.Unlock()
 }

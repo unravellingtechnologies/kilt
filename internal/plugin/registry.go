@@ -19,6 +19,8 @@ var (
 	ErrCircularDependency = errors.New("circular dependency detected")
 	// ErrMissingDependency is returned when a plugin depends on a non-existent plugin
 	ErrMissingDependency = errors.New("missing dependency")
+	// ErrInvalidPhaseOrdering is returned when a plugin depends on another plugin that runs in a later phase
+	ErrInvalidPhaseOrdering = errors.New("invalid phase ordering")
 )
 
 // Registry manages plugin registration and execution order
@@ -173,12 +175,20 @@ func (r *Registry) GetOrderedPlugins() ([]Plugin, error) {
 	return orderedPlugins, nil
 }
 
-// validateDependencies checks that all plugin dependencies exist
+// validateDependencies checks that all plugin dependencies exist and run in the same or an earlier phase
 func (r *Registry) validateDependencies() error {
 	for _, plugin := range r.plugins {
+		pluginPhase := plugin.Phase()
 		for _, dep := range plugin.Dependencies() {
-			if _, exists := r.plugins[dep]; !exists {
+			depPlugin, exists := r.plugins[dep]
+			if !exists {
 				return fmt.Errorf("%w: plugin %s depends on %s which is not registered", ErrMissingDependency, plugin.Name(), dep)
+			}
+
+			depPhase := depPlugin.Phase()
+			if depPhase > pluginPhase {
+				return fmt.Errorf("%w: plugin %s (phase %s) depends on %s (phase %s), but dependencies must run in the same or an earlier phase",
+					ErrInvalidPhaseOrdering, plugin.Name(), pluginPhase, dep, depPhase)
 			}
 		}
 	}

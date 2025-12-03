@@ -104,10 +104,10 @@ get_latest_version() {
   local version
   if command -v curl >/dev/null 2>&1; then
     version=$(curl -sSL "${GITHUB_API}/repos/${KILT_REPO}/releases/latest" | \
-      grep -oP '"tag_name":\s*"\K[^"]+' | head -1 || echo "")
+      sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1 || echo "")
   elif command -v wget >/dev/null 2>&1; then
     version=$(wget -qO- "${GITHUB_API}/repos/${KILT_REPO}/releases/latest" | \
-      grep -oP '"tag_name":\s*"\K[^"]+' | head -1 || echo "")
+      sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1 || echo "")
   fi
   
   if [[ -z "$version" ]]; then

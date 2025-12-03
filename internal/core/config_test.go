@@ -93,8 +93,14 @@ invalid: yaml: content: [
 func TestFindConfigFile(t *testing.T) {
 	// Test with local config
 	tmpDir := t.TempDir()
-	os.Chdir(tmpDir)
-	defer os.Chdir("/")
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir("/"); err != nil {
+			t.Logf("Failed to restore directory: %v", err)
+		}
+	}()
 
 	// Create .kilt directory
 	kiltDir := filepath.Join(tmpDir, ".kilt")
@@ -140,7 +146,9 @@ func TestFindConfigFile_HomeDir(t *testing.T) {
 
 	// Change to a separate temporary working directory (not the fake home)
 	tmpDir := t.TempDir()
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
 
 	found, err := FindConfigFile()
 	require.NoError(t, err)
@@ -168,7 +176,9 @@ func TestFindConfigFile_NotFound(t *testing.T) {
 
 	// Change to a directory without config
 	tmpDir := t.TempDir()
-	os.Chdir(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
 
 	// Verify no config files exist in fake home
 	// (they shouldn't exist since we just created the temp dir)

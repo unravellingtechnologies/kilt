@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/unravelling/kilt/internal/plugin"
@@ -25,7 +26,7 @@ type Plugin struct {
 	cacheTTL      time.Duration
 	cache         map[string]cacheEntry
 	cacheMu       sync.RWMutex
-	authenticated bool
+	authenticated atomic.Bool
 }
 
 // cacheEntry represents a cached secret with expiration
@@ -74,7 +75,7 @@ func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.cacheEnabled = true
 	p.cacheTTL = 5 * time.Minute // Default 5 minute cache TTL
 	p.cache = make(map[string]cacheEntry)
-	p.authenticated = false
+	p.authenticated.Store(false)
 
 	// Get plugin-specific configuration
 	config := plugin.GetPluginConfig(ctx.Config, p.Name())
@@ -120,7 +121,7 @@ func (p *Plugin) Initialise(ctx *plugin.Context) error {
 				p.ctx.Logger.Warn("1Password CLI not authenticated, op template function will not work", "error", err)
 			}
 		} else {
-			p.authenticated = true
+			p.authenticated.Store(true)
 		}
 	}
 
@@ -145,7 +146,7 @@ func (p *Plugin) Validate() error {
 	}
 
 	// If not authenticated, that's okay - user will need to authenticate
-	if !p.authenticated {
+	if !p.authenticated.Load() {
 		return nil
 	}
 
@@ -157,14 +158,14 @@ func (p *Plugin) Validate() error {
 // Execute can be used to verify authentication or perform any runtime checks
 func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 	// Verify authentication status if op is available
-	if p.opPath != "" && !p.authenticated {
+	if p.opPath != "" && !p.authenticated.Load() {
 		if err := p.checkAuthentication(); err != nil {
 			if p.ctx.Logger != nil {
 				p.ctx.Logger.Warn("1Password CLI authentication check failed", "error", err)
 			}
 			// Don't fail execution - template function will handle errors
 		} else {
-			p.authenticated = true
+			p.authenticated.Store(true)
 			if p.ctx.Logger != nil {
 				p.ctx.Logger.Info("1Password CLI authenticated")
 			}
@@ -251,12 +252,12 @@ func (p *Plugin) getSecret(path string) (string, error) {
 		return "", fmt.Errorf("1Password CLI (op) is not installed. Install it from https://1password.com/downloads/command-line/")
 	}
 
-	if !p.authenticated {
+	if !p.authenticated.Load() {
 		// Try to check authentication again (might have been authenticated since init)
 		if err := p.checkAuthentication(); err != nil {
 			return "", fmt.Errorf("1Password CLI is not authenticated. Run 'op signin' to authenticate: %w", err)
 		}
-		p.authenticated = true
+		p.authenticated.Store(true)
 	}
 
 	// Check cache first
@@ -271,7 +272,10 @@ func (p *Plugin) getSecret(path string) (string, error) {
 			// Cache expired, remove it
 			p.cacheMu.RUnlock()
 			p.cacheMu.Lock()
-			delete(p.cache, path)
+			// Re-check: another goroutine may have refreshed or deleted the entry
+			if entry, found := p.cache[path]; found && time.Now().After(entry.expiresAt) {
+				delete(p.cache, path)
+			}
 			p.cacheMu.Unlock()
 		} else {
 			p.cacheMu.RUnlock()

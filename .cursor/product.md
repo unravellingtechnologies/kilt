@@ -20,7 +20,7 @@ One command to turn any fresh Mac into *your* Mac in under 5 minutes — complet
 
 | # | Feature | Description | Implementation Notes |
 |---|---------|-------------|----------------------|
-| 1 | **One-line curl installer** | `curl … | bash -s -- <repo-url>` clones and bootstraps everything | Pure Bash installer that works over HTTPS or SSH |
+| 1 | **One-line curl installer** | `curl … \| bash -s -- <repo-url>` clones and bootstraps everything | Pure Bash installer that works over HTTPS or SSH |
 | 2 | **Bare Git repository** | Dotfiles live in a bare Git repo at `~/.dotfiles` (or custom path) | Uses the proven “bare repo + alias” pattern (Mathias-style) |
 | 3 | **Flexible file placement** | Files can be placed anywhere on the filesystem with explicit target paths | Config uses `source → target` mapping (supports `~` expansion) |
 | 4 | **Arbitrary directory support** | Example: `~/.config/mise/config.toml` ← `./mise/config.toml` | No limitation to $HOME dotfiles |

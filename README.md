@@ -13,7 +13,7 @@ One command to turn any fresh Mac into *your* Mac in under 5 minutes — complet
 
 ### Installation
 
-**One-line install** (recommended):
+####One-line install (recommended):
 ```bash
 curl -sL https://get.kilt.pro | bash -s -- https://github.com/you/dotfiles
 ```
@@ -24,7 +24,7 @@ This command will:
 3. Set up the Kilt directory structure
 4. Apply your dotfiles configuration
 
-**Manual installation**:
+####Manual installation:
 ```bash
 # Download the binary (replace with latest version)
 curl -L https://github.com/unravellingtechnologies/kilt/releases/latest/download/kilt-darwin-arm64 -o /usr/local/bin/kilt
@@ -37,7 +37,7 @@ kilt init https://github.com/you/dotfiles
 kilt sync
 ```
 
-**Build from source**:
+####Build from source:
 ```bash
 git clone https://github.com/unravellingtechnologies/kilt.git
 cd kilt

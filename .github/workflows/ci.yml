@@ -49,7 +49,7 @@ jobs:
           git config --global user.email "test@example.com"
 
       - name: Run unit tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: mkdir -p coverage && go test -v -race -coverprofile=coverage/coverage.out ./...
 
       - name: Run integration tests
         run: go test -v -race ./test/integration/...
@@ -57,7 +57,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          file: ./coverage.out
+          file: ./coverage/coverage.out
           flags: unittests
           name: codecov-umbrella
         continue-on-error: true

@@ -149,7 +149,10 @@ func (p *Plugin) resolveAlternate(source, hostname, osName, arch string) (string
 	// Get all candidate files
 	candidates, err := p.findCandidates(searchDir, nameWithoutExt, ext)
 	if err != nil {
-		// If directory doesn't exist or we can't read it, return original
+		// Log the error but continue with original source
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Debug("Failed to find candidates, using original", "source", source, "error", err)
+		}
 		return source, nil
 	}
 

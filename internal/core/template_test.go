@@ -135,10 +135,19 @@ func TestTemplateEngine_LoadCustomData_InvalidFormat(t *testing.T) {
 	te := NewTemplateEngine()
 
 	tmpDir := t.TempDir()
-	invalidFile := filepath.Join(tmpDir, "data.json")
+	invalidFile := filepath.Join(tmpDir, "data.txt")
+	invalidContent := "some plain text content"
 
-	if err := te.LoadCustomData(invalidFile); err == nil {
+	if err := os.WriteFile(invalidFile, []byte(invalidContent), 0o644); err != nil {
+		t.Fatalf("Failed to write invalid file: %v", err)
+	}
+
+	err := te.LoadCustomData(invalidFile)
+	if err == nil {
 		t.Error("Expected error for unsupported file format")
+	}
+	if err != nil && !strings.Contains(err.Error(), "unsupported data file format") {
+		t.Errorf("Expected error about unsupported format, got: %v", err)
 	}
 }
 

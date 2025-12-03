@@ -197,6 +197,42 @@ func TestRegistry_GetOrderedPlugins_MissingDependency(t *testing.T) {
 	assert.ErrorIs(t, err, ErrMissingDependency)
 }
 
+func TestRegistry_GetOrderedPlugins_InvalidPhaseOrdering(t *testing.T) {
+	registry := NewRegistry()
+
+	// Create a plugin in PreSync phase that depends on a plugin in PostSync phase (invalid)
+	preSyncPlugin := &mockPlugin{name: "pre-sync-plugin", version: "1.0.0", phase: PhasePreSync, dependencies: []string{"post-sync-plugin"}}
+	postSyncPlugin := &mockPlugin{name: "post-sync-plugin", version: "1.0.0", phase: PhasePostSync}
+
+	require.NoError(t, registry.Register(preSyncPlugin))
+	require.NoError(t, registry.Register(postSyncPlugin))
+
+	_, err := registry.GetOrderedPlugins()
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidPhaseOrdering)
+	assert.Contains(t, err.Error(), "pre-sync-plugin")
+	assert.Contains(t, err.Error(), "post-sync-plugin")
+	assert.Contains(t, err.Error(), "PreSync")
+	assert.Contains(t, err.Error(), "PostSync")
+}
+
+func TestRegistry_GetOrderedPlugins_ValidCrossPhaseDependency(t *testing.T) {
+	registry := NewRegistry()
+
+	// Create a plugin in PostSync that depends on a plugin in PreSync (valid - dependency runs earlier)
+	preSyncPlugin := &mockPlugin{name: "pre-sync-plugin", version: "1.0.0", phase: PhasePreSync}
+	postSyncPlugin := &mockPlugin{name: "post-sync-plugin", version: "1.0.0", phase: PhasePostSync, dependencies: []string{"pre-sync-plugin"}}
+
+	require.NoError(t, registry.Register(preSyncPlugin))
+	require.NoError(t, registry.Register(postSyncPlugin))
+
+	ordered, err := registry.GetOrderedPlugins()
+	require.NoError(t, err)
+	require.Len(t, ordered, 2)
+	assert.Equal(t, "pre-sync-plugin", ordered[0].Name())
+	assert.Equal(t, "post-sync-plugin", ordered[1].Name())
+}
+
 func TestRegistry_GetOrderedPlugins_PhaseOrdering(t *testing.T) {
 	registry := NewRegistry()
 

@@ -239,12 +239,14 @@ func TestPathsMatch(t *testing.T) {
 	// Test identical paths
 	assert.True(t, core.PathsMatch("/path/to/file", "/path/to/file"))
 
-	// Test relative vs absolute (same file)
+	// Test paths resolving to same file
 	tmpDir := t.TempDir()
 	absPath := filepath.Join(tmpDir, "file")
-	relPath := filepath.Join(tmpDir, "file")
+	// Create the file so we can test from within its directory
+	require.NoError(t, os.WriteFile(absPath, []byte{}, 0o644))
 
-	assert.True(t, core.PathsMatch(absPath, relPath))
+	// Test same path comparison
+	assert.True(t, core.PathsMatch(absPath, absPath))
 
 	// Test different paths
 	assert.False(t, core.PathsMatch("/path/to/file1", "/path/to/file2"))

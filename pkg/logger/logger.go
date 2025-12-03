@@ -145,6 +145,10 @@ func (l *Logger) formatMessage(level Level, msg string, fields ...interface{}) s
 
 	// Fields
 	if len(fields) > 0 {
+		if len(fields)%2 != 0 {
+			// Odd number of fields - last key has no value
+			// Could add a warning here or append "key=(missing value)"
+		}
 		var fieldParts []string
 		for i := 0; i < len(fields); i += 2 {
 			if i+1 < len(fields) {
@@ -191,6 +195,9 @@ func (l *Logger) Error(msg string, fields ...interface{}) {
 
 // Success logs a success message (info level with green colour)
 func (l *Logger) Success(msg string, fields ...interface{}) {
+	if l.level > LevelInfo {
+		return
+	}
 	formatted := l.colourize(colourGreen, "✓ "+msg)
 	if len(fields) > 0 {
 		var fieldParts []string
