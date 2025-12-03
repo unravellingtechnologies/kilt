@@ -130,7 +130,7 @@ func (te *TestEnvironment) InitGitRepo(t *testing.T) error {
 	// Check if already a git repository
 	gitDir := filepath.Join(te.RepoPath, ".git")
 	if _, err := os.Stat(gitDir); err == nil {
-		// Already initialized - just ensure config is set and commit any new files
+		// Already initialised - just ensure config is set and commit any new files
 		cmd := exec.Command("git", "config", "user.name", "Test User")
 		cmd.Dir = te.RepoPath
 		_ = cmd.Run() // Ignore errors - config may already be set

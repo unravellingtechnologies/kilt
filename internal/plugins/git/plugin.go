@@ -475,9 +475,24 @@ func (p *Plugin) setupGitAuth(cmd *exec.Cmd) error {
 		baseEnv = os.Environ()
 	}
 
-	// Build environment variables slice
-	env := make([]string, len(baseEnv))
-	copy(env, baseEnv)
+	// Build list of env vars we'll be setting (to filter out existing values)
+	overrideVars := make(map[string]bool)
+	if p.sshKey != "" {
+		overrideVars["GIT_SSH_COMMAND"] = true
+	}
+	if p.gitToken != "" {
+		overrideVars["GIT_ASKPASS"] = true
+		overrideVars["GIT_TERMINAL_PROMPT"] = true
+	}
+
+	// Copy base environment, filtering out vars we'll override
+	env := make([]string, 0, len(baseEnv))
+	for _, e := range baseEnv {
+		varName := strings.SplitN(e, "=", 2)[0]
+		if !overrideVars[varName] {
+			env = append(env, e)
+		}
+	}
 
 	// Set SSH key if provided
 	if p.sshKey != "" {
