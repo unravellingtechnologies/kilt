@@ -6,9 +6,9 @@ This guide will help you set up a development environment for contributing to Ki
 
 ### Required
 
-- **Go 1.21 or later**: [Install Go](https://go.dev/doc/install)
+- **Go 1.25 or later**: [Install Go](https://go.dev/doc/install)
   ```bash
-  go version  # Should show 1.21 or later
+  go version  # Should show 1.25 or later
   ```
 
 - **Git**: For version control and repository operations

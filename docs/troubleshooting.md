@@ -65,7 +65,7 @@ This guide helps you diagnose and fix common issues with Kilt.
 **Problem**: Building Kilt from source fails.
 
 **Solutions**:
-1. Ensure Go 1.21+ is installed:
+1. Ensure Go 1.25+ is installed:
    ```bash
    go version
    ```

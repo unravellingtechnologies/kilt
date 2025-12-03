@@ -41,7 +41,7 @@ See [docs/development-setup.md](docs/development-setup.md) for detailed setup in
 
 ### Quick Start
 
-1. **Install Go 1.21+**: Ensure you have Go 1.21 or later installed
+1. **Install Go 1.25+**: Ensure you have Go 1.25 or later installed
    ```bash
    go version
    ```

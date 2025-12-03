@@ -1352,7 +1352,7 @@ go tool pprof cpu.prof
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| Language | Go 1.21+ | Fast, single binary, great stdlib |
+| Language | Go 1.25+ | Fast, single binary, great stdlib |
 | CLI Framework | cobra + pflag | Industry standard, great UX |
 | Config Format | YAML | Order-preserving arrays, human-readable |
 | Template Engine | Go text/template | Stdlib, powerful, familiar |

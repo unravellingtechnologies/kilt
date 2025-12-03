@@ -13,7 +13,7 @@ Kilt uses [GoReleaser](https://goreleaser.com) to automate the build and release
 
 ## Prerequisites
 
-- Go 1.21 or later
+- Go 1.25 or later
 - [GoReleaser](https://goreleaser.com/install/) (for local testing)
 - GitHub repository with Actions enabled
 - Write access to the repository for creating releases

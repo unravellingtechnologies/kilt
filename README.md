@@ -173,7 +173,7 @@ This project is in active development. See [tasks.md](tasks.md) for the full dev
 
 ### Build Requirements (for building from source)
 
-- **Go 1.21+** - For building from source
+- **Go 1.25+** - For building from source
 - **Make** - For build automation (optional, can use `go build` directly)
 
 ### Optional Dependencies
