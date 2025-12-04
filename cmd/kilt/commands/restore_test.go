@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,8 +14,8 @@ import (
 func TestRestoreCommand_InvalidBackupID(t *testing.T) {
 	cmd := NewRestoreCmd()
 	cmd.SetArgs([]string{"invalid-id"})
-	cmd.SetOut(os.NewFile(0, os.DevNull))
-	cmd.SetErr(os.NewFile(0, os.DevNull))
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
 
 	err := cmd.Execute()
 	require.Error(t, err)
