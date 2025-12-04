@@ -44,7 +44,6 @@ dist/
 bin/
 build/
 *.bin
-kilt
 kilt.exe
 kilt.darwin
 kilt.linux
