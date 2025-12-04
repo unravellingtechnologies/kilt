@@ -252,50 +252,93 @@ func (p *Plugin) getSecret(path string) (string, error) {
 		return "", fmt.Errorf("1Password CLI (op) is not installed. Install it from https://1password.com/downloads/command-line/")
 	}
 
-	if !p.authenticated.Load() {
-		// Try to check authentication again (might have been authenticated since init)
-		if err := p.checkAuthentication(); err != nil {
-			return "", fmt.Errorf("1Password CLI is not authenticated. Run 'op signin' to authenticate: %w", err)
-		}
-		p.authenticated.Store(true)
+	if err := p.ensureAuthenticated(); err != nil {
+		return "", err
 	}
 
 	// Check cache first
-	if p.cacheEnabled {
-		p.cacheMu.RLock()
-		if entry, found := p.cache[path]; found {
-			if time.Now().Before(entry.expiresAt) {
-				value := entry.value
-				p.cacheMu.RUnlock()
-				return value, nil
-			}
-			// Cache expired, remove it
-			p.cacheMu.RUnlock()
-			p.cacheMu.Lock()
-			// Re-check: another goroutine may have refreshed or deleted the entry
-			if entry, found := p.cache[path]; found && time.Now().After(entry.expiresAt) {
-				delete(p.cache, path)
-			}
-			p.cacheMu.Unlock()
-		} else {
-			p.cacheMu.RUnlock()
-		}
+	if cached, found := p.getCachedSecret(path); found {
+		return cached, nil
 	}
 
-	// Build op command
+	// Build and run op command
+	output, err := p.runOpCommand(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Parse and cache the result
+	secret := p.parseOpOutput(output)
+	if p.cacheEnabled {
+		p.cacheSecret(path, secret)
+	}
+
+	return secret, nil
+}
+
+// ensureAuthenticated checks and authenticates if needed
+func (p *Plugin) ensureAuthenticated() error {
+	if p.authenticated.Load() {
+		return nil
+	}
+
+	// Try to check authentication again (might have been authenticated since init)
+	if err := p.checkAuthentication(); err != nil {
+		return fmt.Errorf("1Password CLI is not authenticated. Run 'op signin' to authenticate: %w", err)
+	}
+
+	p.authenticated.Store(true)
+	return nil
+}
+
+// getCachedSecret retrieves a secret from cache if available and not expired
+func (p *Plugin) getCachedSecret(path string) (string, bool) {
+	if !p.cacheEnabled {
+		return "", false
+	}
+
+	p.cacheMu.RLock()
+	entry, found := p.cache[path]
+	p.cacheMu.RUnlock()
+
+	if !found {
+		return "", false
+	}
+
+	if time.Now().Before(entry.expiresAt) {
+		return entry.value, true
+	}
+
+	// Cache expired, remove it
+	p.cacheMu.Lock()
+	// Re-check: another goroutine may have refreshed or deleted the entry
+	if entry, found := p.cache[path]; found && time.Now().After(entry.expiresAt) {
+		delete(p.cache, path)
+	}
+	p.cacheMu.Unlock()
+
+	return "", false
+}
+
+// buildOpArgs builds the command arguments for op read
+func (p *Plugin) buildOpArgs(path string) []string {
 	args := []string{"read", path}
 
-	// Add account flag if specified
 	if p.account != "" {
 		args = append(args, "--account", p.account)
 	}
 
-	// Add vault flag if specified
 	if p.vault != "" {
 		args = append(args, "--vault", p.vault)
 	}
 
-	// Run op command with timeout
+	return args
+}
+
+// runOpCommand executes the op command and returns the output
+func (p *Plugin) runOpCommand(path string) ([]byte, error) {
+	args := p.buildOpArgs(path)
+
 	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -305,38 +348,37 @@ func (p *Plugin) getSecret(path string) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		if cmdCtx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("1Password secret lookup timed out after 30 seconds for path: %s", path)
-		}
-
-		// Parse error output to provide better error messages
-		errorMsg := string(output)
-		if len(errorMsg) > 0 {
-			return "", fmt.Errorf("failed to retrieve secret from 1Password for path '%s': %s\nHint: Ensure the secret path is correct and you have access to it. Run 'op signin' if authentication is required", path, errorMsg)
-		}
-
-		return "", fmt.Errorf("failed to retrieve secret from 1Password for path '%s': %w\nHint: Ensure the secret path is correct and you have access to it", path, err)
+		return nil, p.handleOpError(path, err, cmdCtx, output)
 	}
 
-	// Parse output - op read returns JSON for structured items, plain text for fields
+	return output, nil
+}
+
+// handleOpError formats error messages from op command failures
+func (p *Plugin) handleOpError(path string, err error, cmdCtx context.Context, output []byte) error {
+	if cmdCtx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("1Password secret lookup timed out after 30 seconds for path: %s", path)
+	}
+
+	errorMsg := string(output)
+	if len(errorMsg) > 0 {
+		return fmt.Errorf("failed to retrieve secret from 1Password for path '%s': %s\nHint: Ensure the secret path is correct and you have access to it. Run 'op signin' if authentication is required", path, errorMsg)
+	}
+
+	return fmt.Errorf("failed to retrieve secret from 1Password for path '%s': %w\nHint: Ensure the secret path is correct and you have access to it", path, err)
+}
+
+// parseOpOutput parses the output from op read command
+func (p *Plugin) parseOpOutput(output []byte) string {
 	// Try to parse as JSON first
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal(output, &jsonData); err == nil {
 		// It's JSON - extract the value field if it exists
 		if value, ok := jsonData["value"].(string); ok {
-			secret := value
-			// Cache the result
-			if p.cacheEnabled {
-				p.cacheSecret(path, secret)
-			}
-			return secret, nil
+			return value
 		}
 		// If no value field, return the whole JSON as string (for structured items)
-		secret := string(output)
-		if p.cacheEnabled {
-			p.cacheSecret(path, secret)
-		}
-		return secret, nil
+		return string(output)
 	}
 
 	// Not JSON - return as plain text (trimmed)
@@ -345,12 +387,7 @@ func (p *Plugin) getSecret(path string) (string, error) {
 		secret = secret[:len(secret)-1]
 	}
 
-	// Cache the result
-	if p.cacheEnabled {
-		p.cacheSecret(path, secret)
-	}
-
-	return secret, nil
+	return secret
 }
 
 // cacheSecret caches a secret with expiration

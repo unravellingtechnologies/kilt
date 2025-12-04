@@ -145,7 +145,7 @@ func NewSpinner(message string, colourized bool) *Spinner {
 		output:     os.Stderr,
 		colourized: colourized && isTerminal(os.Stderr),
 		message:    message,
-		stop:       make(chan bool),
+		stop:       make(chan bool, 1),
 		done:       make(chan bool),
 		frames:     []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 		frame:      0,

@@ -145,10 +145,6 @@ func (l *Logger) formatMessage(level Level, msg string, fields ...interface{}) s
 
 	// Fields
 	if len(fields) > 0 {
-		if len(fields)%2 != 0 {
-			// Odd number of fields - last key has no value
-			// Could add a warning here or append "key=(missing value)"
-		}
 		var fieldParts []string
 		for i := 0; i < len(fields); i += 2 {
 			if i+1 < len(fields) {
@@ -156,6 +152,7 @@ func (l *Logger) formatMessage(level Level, msg string, fields ...interface{}) s
 				value := fields[i+1]
 				fieldParts = append(fieldParts, fmt.Sprintf("%s=%v", key, value))
 			}
+			// Note: Odd number of fields means last key has no value, which is handled gracefully by skipping it
 		}
 		if len(fieldParts) > 0 {
 			parts = append(parts, l.colourize(colourGray, "("+strings.Join(fieldParts, ", ")+")"))
