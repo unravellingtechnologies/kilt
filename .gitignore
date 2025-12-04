@@ -14,7 +14,6 @@ coverage.out
 coverage.html
 coverage.txt
 *.cover
-coverage/
 
 # Dependency directories
 vendor/
@@ -44,6 +43,7 @@ dist/
 bin/
 build/
 *.bin
+/kilt
 kilt.exe
 kilt.darwin
 kilt.linux
