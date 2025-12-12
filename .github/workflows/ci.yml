@@ -26,6 +26,34 @@ jobs:
           version: v2.6.2
           args: --timeout=5m
 
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: go.sum
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
   test:
     name: Test
     runs-on: ${{ matrix.os }}
@@ -65,7 +93,7 @@ jobs:
   build:
     name: Build Check
     runs-on: ubuntu-latest
-    needs: [validation, test]
+    needs: [validation, test, codeql]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
