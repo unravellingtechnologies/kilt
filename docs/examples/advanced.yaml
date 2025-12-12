@@ -1,0 +1,84 @@
+# Advanced Kilt Configuration
+# A comprehensive configuration showcasing all features.
+
+dotfiles_repo: "https://github.com/yourusername/dotfiles"
+dotfiles_path: "~/.dotfiles"
+
+# Custom data file for templates
+data_file: "data.yaml"
+template_engine: "go"
+
+# Dotfiles with various configurations
+dotfiles:
+  # Simple directory sync
+  - zsh
+  - git
+  - vim
+  
+  # Explicit mapping with template rendering
+  - source: ssh/config
+    target: ~/.ssh/config
+    mode: "0600"
+    template: true
+  
+  # Explicit mapping with custom permissions
+  - source: scripts/my-script.sh
+    target: ~/bin/my-script.sh
+    mode: "0755"
+    template: false
+
+# Extra Git repositories to clone
+extra_repos:
+  - url: "https://github.com/zsh-users/zsh-autosuggestions"
+    path: "~/.zsh/plugins/zsh-autosuggestions"
+    branch: "main"
+  - url: "https://github.com/zdharma-continuum/fast-syntax-highlighting"
+    path: "~/.zsh/plugins/fast-syntax-highlighting"
+    branch: "main"
+
+# Directories to ensure exist
+directories:
+  - ~/dev/personal
+  - ~/dev/work
+  - ~/screenshots
+  - ~/Documents/notes
+  - ~/.local/bin
+
+# Run-once bootstrap scripts
+run_once:
+  - scripts/install_homebrew.sh
+  - scripts/setup_macos.sh
+  - scripts/install_1password_cli.sh
+  - scripts/setup_ssh_keys.sh
+
+# Commands to run when files change
+on_change:
+  - brew bundle --file=Brewfile
+  - mise install --yes
+
+# Plugin-specific configuration
+plugins:
+  # Run Once plugin configuration
+  runonce:
+    timeout: "15m"      # Custom timeout (default: 5m)
+    force_run: false    # Don't re-execute completed scripts
+  
+  # Brew plugin configuration
+  brew:
+    auto_install: true   # Install Homebrew if not found
+    brewfile: "Brewfile" # Path to Brewfile
+    auto_update: false   # Don't run brew update after bundle
+    cleanup_after: true  # Run brew cleanup after bundle
+    bundles:            # Multiple bundle files
+      - bootstrap       # Runs brew bundle --file=bootstrap
+      - dev             # Runs brew bundle --file=dev
+  
+  # Git plugin configuration
+  git:
+    auto_pull: true      # Automatically pull remote changes
+  
+  # 1Password plugin configuration
+  onepassword:
+    account: "my.1password.com"
+    cache_ttl: 3600     # Cache secrets for 1 hour (in seconds)
+

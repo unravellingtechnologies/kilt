@@ -1,0 +1,51 @@
+#!/bin/sh
+# Pre-commit hook to run linting and formatting checks
+# Install with: ln -s ../../.githooks/pre-commit .git/hooks/pre-commit
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Not in a git repository, skipping pre-commit hook"
+    exit 0
+fi
+
+# Run gofmt check
+echo "Checking code formatting..."
+if ! make fmt-check; then
+    echo "Error: Code is not properly formatted."
+    echo "Please run 'make fmt' to fix formatting issues."
+    exit 1
+fi
+
+# Run go vet
+echo "Running go vet..."
+if ! make vet; then
+    echo "Error: go vet found issues."
+    exit 1
+fi
+
+# Run golangci-lint (only on staged files to be faster)
+echo "Running golangci-lint on staged files..."
+if command -v golangci-lint > /dev/null 2>&1; then
+    # Use NUL-separated output to safely handle filenames with spaces or special characters
+    # Filter for .go files and check if any exist before running lint
+    STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM -z | \
+        while IFS= read -r -d '' file; do
+            case "$file" in *.go) printf '%s\0' "$file";; esac
+        done)
+    
+    # Check if we have any Go files (check for non-empty string, accounting for NUL chars)
+    if printf '%s' "$STAGED_GO_FILES" | grep -q .; then
+        printf '%s' "$STAGED_GO_FILES" | xargs -0 golangci-lint run --timeout=5m
+    fi
+else
+    echo "Warning: golangci-lint not found. Install with: make lint-install"
+fi
+
+echo "Pre-commit checks passed!"
+exit 0
+
+

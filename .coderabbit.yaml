@@ -1,0 +1,50 @@
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+language: "en-US"
+early_access: false
+chat: { auto_reply: true }
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  
+  poem: false
+  
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_instructions:
+    - path: 'docs/**/*.md'
+      instructions: >-
+        Review the documentation for clarity, grammar, and spelling.
+        Make sure that the documentation is easy to understand and follow.
+        Ensure technical accuracy regarding the 'kilt' tool functionality.
+
+    - path: '**/*.go'
+      instructions: >-
+        Review the Go code for quality, correctness, and performance.
+        Ensure adherence to the project's core principles: idempotency, safety, and separation of concerns.
+        Check that error handling is robust (using the defined KiltError types where appropriate) and user-friendly.
+        Verify that no secrets are hardcoded and 1Password integration is used correctly where needed.
+
+    - path: 'pkg/**/*.go'
+      instructions: >-
+        This directory contains public packages. Ensure exported functions and types are well-documented.
+        Pay extra attention to API compatibility and clarity.
+
+    - path: 'internal/**/*.go'
+      instructions: >-
+        This directory contains internal application logic. Ensure proper modularity and that internal details do not leak.
+
+    - path: 'test/**/*.go'
+      instructions: >-
+        Review test code for clarity and coverage. 
+        Ensure usage of 'testify' assertions and proper mocking patterns as per project conventions.
+
+  tools:
+    languagetool:
+      enabled: true
+      level: default

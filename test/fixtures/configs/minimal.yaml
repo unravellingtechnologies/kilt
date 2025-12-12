@@ -1,0 +1,16 @@
+data_file: "data.yaml"
+template_engine: "go"
+dotfiles_repo: "https://github.com/test/dotfiles"
+dotfiles_path: "~/.dotfiles"
+
+dotfiles:
+  - zsh
+  - git
+
+directories:
+  - "~/dev"
+
+run_once:
+  - "scripts/install.sh"
+
+
