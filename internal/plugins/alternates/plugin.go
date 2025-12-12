@@ -20,6 +20,7 @@ type Plugin struct {
 	resolutions    map[string]string // original source -> resolved source
 }
 
+// init registers the alternates plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register alternates plugin: %w", err))

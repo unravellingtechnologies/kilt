@@ -28,6 +28,7 @@ type Plugin struct {
 	installedBrew   bool     // Track if we installed brew in this run
 }
 
+// init registers the brew plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register brew plugin: %w", err))

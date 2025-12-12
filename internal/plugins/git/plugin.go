@@ -28,6 +28,7 @@ type Plugin struct {
 	askpassScript string   // Path to temporary GIT_ASKPASS script (for token auth)
 }
 
+// init registers the git plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register git plugin: %w", err))

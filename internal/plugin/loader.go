@@ -73,6 +73,7 @@ func GetPluginConfig(config Config, pluginName string) map[string]interface{} {
 // well-established in Go and provides excellent ergonomics for plugin authors.
 var defaultRegistry *Registry
 
+// init initializes the default plugin registry
 func init() {
 	defaultRegistry = NewRegistry()
 }

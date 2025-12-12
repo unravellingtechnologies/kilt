@@ -38,6 +38,7 @@ var commonDotfiles = map[string]bool{
 	"dockerignore": true,
 }
 
+// init registers the dotfiles plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register dotfiles plugin: %w", err))

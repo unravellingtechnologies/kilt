@@ -28,6 +28,7 @@ var backupsListCmd = &cobra.Command{
 
 var backupsListJSON bool
 
+// init sets up command line flags and subcommands for the backups command
 func init() {
 	backupsListCmd.Flags().BoolVar(&backupsListJSON, "json", false, "Output in JSON format")
 	backupsCmd.AddCommand(backupsListCmd)

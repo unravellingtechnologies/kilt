@@ -26,6 +26,7 @@ The backup ID can be found by running 'kilt backups list'.`,
 // backupIDPattern matches backup ID format: YYYYMMDD-HHMMSS or YYYYMMDD-HHMMSS-N
 var backupIDPattern = regexp.MustCompile(`^\d{8}-\d{6}(-\d+)?$`)
 
+// init sets up command line flags for the restore command
 func init() {
 	restoreCmd.Flags().BoolVarP(&restoreForce, "force", "f", false, "Skip confirmation prompt")
 }

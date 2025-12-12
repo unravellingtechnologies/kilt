@@ -56,6 +56,7 @@ system into a personalised development environment using a single command.`,
 	},
 }
 
+// init sets up global command line flags
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&globalDryRun, "dry-run", false, "Show what would happen without executing")
 	rootCmd.PersistentFlags().BoolVarP(&globalVerbose, "verbose", "v", false, "Detailed logging output")
@@ -77,6 +78,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewBackupsCmd())
 }
 
+// main is the entry point for the Kilt CLI application
 func main() {
 	// Set up error formatting with colour support
 	if err := rootCmd.Execute(); err != nil {

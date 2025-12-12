@@ -32,6 +32,7 @@ type Plugin struct {
 	executedCmds   []string // Track commands executed in this run for rollback
 }
 
+// init registers the onchange plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register onchange plugin: %w", err))

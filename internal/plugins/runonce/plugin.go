@@ -26,6 +26,7 @@ type Plugin struct {
 	executedTasks  []string // Track tasks executed in this run for rollback
 }
 
+// init registers the runonce plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register runonce plugin: %w", err))

@@ -32,6 +32,7 @@ Examples:
 
 var initBranch string
 
+// init sets up command line flags for the init command
 func init() {
 	initCmd.Flags().StringVarP(&initBranch, "branch", "b", "", "Branch to clone (default: repository default)")
 }

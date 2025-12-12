@@ -35,6 +35,7 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
+// init registers the onepassword plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register onepassword plugin: %w", err))

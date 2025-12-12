@@ -18,6 +18,7 @@ type Plugin struct {
 	createdDirs []string // For rollback tracking
 }
 
+// init registers the directories plugin
 func init() {
 	if err := plugin.RegisterPlugin(&Plugin{}); err != nil {
 		panic(fmt.Errorf("failed to register directories plugin: %w", err))
