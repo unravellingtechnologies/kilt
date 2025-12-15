@@ -240,7 +240,7 @@ func expandPluginPaths(plugins map[string]interface{}) error {
 					}
 				} else if nestedMap, ok := value.(map[string]interface{}); ok {
 					// Recursively handle nested maps
-					if err := expandPluginPaths(map[string]interface{}{"nested": nestedMap}); err != nil {
+					if err := expandPluginPaths(nestedMap); err != nil {
 						return err
 					}
 				}
@@ -277,7 +277,8 @@ func ExpandPath(path string) (string, error) {
 		if val := os.Getenv(varName); val != "" {
 			return val
 		}
-		return match // Return original if not found
+		// Align $(VAR) behaviour with ${VAR}: unset variables become empty
+		return ""
 	})
 
 	return expanded, nil
@@ -346,12 +347,12 @@ func ValidateConfig(cfg *Config) error {
 
 // isValidFileMode checks if a file mode string is valid (octal format)
 func isValidFileMode(mode string) bool {
-	// Should be 3-4 digits in octal format (e.g., "0644", "755")
-	// 3-digit modes should not start with 0 (e.g., "755", "644")
+	// Should be 3-4 digits in octal format (e.g., "0644", "755", "077")
+	// 3-digit modes may begin with 0 (e.g., "755", "644", "077")
 	// 4-digit modes should start with 0 (e.g., "0644", "0755")
 	if len(mode) == 3 {
-		// 3 digits, first digit should be 1-7 (not 0)
-		matched, _ := regexp.MatchString(`^[1-7][0-7]{2}$`, mode)
+		// 3 digits, all positions may be 0-7
+		matched, _ := regexp.MatchString(`^[0-7]{3}$`, mode)
 		return matched
 	}
 	if len(mode) == 4 {

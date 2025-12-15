@@ -29,7 +29,7 @@ One command to turn any fresh Mac into *your* Mac in under 5 minutes — complet
 | 7 | **Declarative extra repositories** | List of external Git repos to clone into specific locations | Example: `~/Projects/zsh-plugins/fast-syntax-highlighting` |
 | 8 | **Folder skeleton creation** | Declarative list of directories to always ensure exist | `~/dev`, `~/screenshots`, `~/Documents/notes`, etc. |
 | 9 | **1Password CLI secret injection** | Secrets are never stored in Git — pulled live from 1Password during apply | Uses `op read` with templating: `{{ op://Private/github-token }}` |
-| 10 | **Templating (Go templates)** | Full Go template support in any file with machine-specific variables | Built-in vars: `{{ .hostname }}`, `{{ .os }}`, `{{ .arch }}`, custom JSON/YAML data file |
+| 10 | **Templating (Go templates)** | Full Go template support in any file with machine-specific variables | Built-in vars: `{{ .Hostname }}`, `{{ .OS }}`, `{{ .Arch }}`, custom JSON/YAML data file |
 | 11 | **OS & hostname alternates** | Automatic file selection: `file.mac.zsh`, `file_linux.zsh`, `file.hostname@work.zsh` | yadm-style alternates without needing yadm |
 | 12 | **Idempotency & dry-run** | `dot sync --dry-run` shows exactly what will happen | All tasks are naturally idempotent |
 | 13 | **Pre-apply backup** | Existing files are backed up to `~/.kilt/backup/YYYYMMDD-HHMMSS/` before overwrite | Never silently destroys user data |

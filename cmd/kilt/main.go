@@ -16,6 +16,7 @@ import (
 var (
 	version   = "dev"
 	buildTime = "unknown"
+	gitCommit = "unknown"
 )
 
 var (
@@ -66,7 +67,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&globalForce, "force", false, "Skip confirmation prompts")
 
 	// Set version information in commands package
-	commands.SetVersionInfo(version, buildTime, "")
+	commands.SetVersionInfo(version, buildTime, gitCommit)
 
 	// Register commands
 	rootCmd.AddCommand(commands.NewInitCmd())

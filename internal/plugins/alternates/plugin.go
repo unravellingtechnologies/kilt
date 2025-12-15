@@ -115,7 +115,8 @@ func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 		}
 
 		if resolvedSource != originalSource {
-			// Update the source path
+			// Intentional config mutation: update source path to propagate resolved path
+			// to downstream plugins in the pipeline; p.resolutions is updated for tracking
 			cfg.Dotfiles[i].Source = resolvedSource
 			p.resolutions[originalSource] = resolvedSource
 

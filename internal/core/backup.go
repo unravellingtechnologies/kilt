@@ -370,6 +370,9 @@ func (bm *BackupManager) listBackupsLocked() ([]*BackupMetadata, error) {
 
 // GetBackupSize calculates the total size of a backup directory
 func (bm *BackupManager) GetBackupSize(backupID string) (int64, error) {
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
+
 	backupPath := filepath.Join(bm.backupDir, backupID)
 	return bm.calculateDirSize(backupPath)
 }
@@ -393,6 +396,9 @@ func (bm *BackupManager) calculateDirSize(dirPath string) (int64, error) {
 
 // GetTotalBackupSize calculates the total size of all backups
 func (bm *BackupManager) GetTotalBackupSize() (int64, error) {
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
+
 	return bm.calculateDirSize(bm.backupDir)
 }
 

@@ -211,7 +211,7 @@ func TestEngine_Execute_PluginValidationFailure(t *testing.T) {
 
 	// Plugin should not be executed if validation fails
 	// (The engine continues execution, but records errors)
-	if result != nil && len(result.Errors) == 0 {
+	if result == nil || len(result.Errors) == 0 {
 		t.Error("Expected errors from validation failure")
 	}
 }

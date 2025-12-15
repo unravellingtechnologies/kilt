@@ -227,6 +227,14 @@ func TestExpandPath(t *testing.T) {
 			setupEnv: func() {},
 		},
 		{
+			name:  "expand $(VAR) missing env returns empty",
+			input: "$(MISSING_ENV)",
+			want:  "",
+			setupEnv: func() {
+				_ = os.Unsetenv("MISSING_ENV")
+			},
+		},
+		{
 			name:  "no expansion needed",
 			input: "/absolute/path",
 			want:  "/absolute/path",
@@ -549,8 +557,11 @@ func TestExpandPaths_PluginPaths(t *testing.T) {
 	cfg := &Config{
 		Plugins: map[string]interface{}{
 			"test": map[string]interface{}{
-				"path1":    "~/plugin_path1",
-				"path2":    "${HOME}/plugin_path2",
+				"path1": "~/plugin_path1",
+				"path2": "${HOME}/plugin_path2",
+				"nested": map[string]interface{}{
+					"path3": "~/plugin_path3",
+				},
 				"non_path": "regular_value",
 			},
 		},
@@ -561,6 +572,8 @@ func TestExpandPaths_PluginPaths(t *testing.T) {
 
 	pluginConfig := cfg.Plugins["test"].(map[string]interface{})
 	assert.Equal(t, filepath.Join(homeDir, "plugin_path1"), pluginConfig["path1"])
+	nested := pluginConfig["nested"].(map[string]interface{})
+	assert.Equal(t, filepath.Join(homeDir, "plugin_path3"), nested["path3"])
 	assert.Equal(t, "regular_value", pluginConfig["non_path"], "ExpandPaths() should not modify non-path values")
 }
 

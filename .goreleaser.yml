@@ -27,8 +27,6 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
-    # Binary naming: kilt-{os}-{arch} (matches installer script expectations)
-    binary_name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
 
 # Archive configuration (creates tar.gz archives for distribution)
 # Note: Binaries are also uploaded directly as release assets with names matching installer expectations

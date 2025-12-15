@@ -276,6 +276,9 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 			continue
 		}
 
+		// Record changes count before plugin execution
+		changesBefore := len(executionCtx.Changes)
+
 		// Validate plugin
 		if err := p.Validate(); err != nil {
 			err := fmt.Errorf("plugin %s validation failed: %w", p.Name(), err)
@@ -304,7 +307,10 @@ func (e *Engine) Execute() (*ExecutionResult, error) {
 		e.rollbackStack = append(e.rollbackStack, p)
 
 		pluginsRun++
-		result.Changes = append(result.Changes, executionCtx.Changes...)
+		// Only append the new changes produced by this plugin
+		if changesBefore < len(executionCtx.Changes) {
+			result.Changes = append(result.Changes, executionCtx.Changes[changesBefore:]...)
+		}
 	}
 
 	// Update state

@@ -210,10 +210,8 @@ func (p *Plugin) Execute(ctx *plugin.ExecutionContext) error {
 		}
 	} else {
 		// Run single brewfile (only if changed)
-		if shouldRun, err := p.shouldRunBundle(ctx); err == nil && shouldRun {
-			if err := p.runBundle(ctx, p.brewfile); err != nil {
-				return fmt.Errorf("failed to run brew bundle: %w", err)
-			}
+		if err := p.runBundle(ctx, p.brewfile); err != nil {
+			return fmt.Errorf("failed to run brew bundle: %w", err)
 		}
 	}
 
@@ -411,7 +409,7 @@ func (p *Plugin) findBrew() (string, error) {
 		"/usr/local/bin/brew",                 // macOS Intel
 		"/opt/homebrew/bin/brew",              // macOS Apple Silicon
 		"/home/linuxbrew/.linuxbrew/bin/brew", // Linuxbrew
-		"/home/linuxbrew/.linuxbrew/bin/brew", // Linuxbrew (alternative)
+		"/usr/bin/brew",                       // Linux package install
 	}
 
 	// First, try to find brew in PATH

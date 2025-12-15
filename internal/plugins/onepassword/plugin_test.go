@@ -293,16 +293,16 @@ func TestPlugin_getSecret_Cache(t *testing.T) {
 	}
 	p.cacheMu.Unlock()
 
-	// Verify cache logic
-	p.cacheMu.RLock()
-	entry, found := p.cache["test/path"]
-	p.cacheMu.RUnlock()
+	// Ensure getSecret returns cached value without calling op
+	p.opPath = "op" // non-empty to bypass missing CLI check
+	p.authenticated.Store(true)
 
-	assert.True(t, found, "Cache entry should be found")
-	assert.Equal(t, "cached_secret", entry.value)
+	val, err := p.getSecret("test/path")
+	assert.NoError(t, err)
+	assert.Equal(t, "cached_secret", val)
 }
 
-func TestPlugin_getSecret_CacheExpired(t *testing.T) {
+func TestPlugin_CacheEntryCanBeExpired(t *testing.T) {
 	tmpDir := t.TempDir()
 	workDir := filepath.Join(tmpDir, "repo")
 	require.NoError(t, os.MkdirAll(workDir, 0o755))
@@ -325,12 +325,11 @@ func TestPlugin_getSecret_CacheExpired(t *testing.T) {
 	}
 	p.cacheMu.Unlock()
 
-	// Cache should be removed when accessed
+	// Expired entry can exist in map; actual removal requires op invocation
 	p.cacheMu.RLock()
 	_, found := p.cache["test/path"]
 	p.cacheMu.RUnlock()
 
-	// The entry should still be there until we try to use it
-	// But since we can't actually call getSecret without op, we'll just verify the entry exists
-	assert.True(t, found, "Cache entry should exist (even if expired)")
+	// TODO: add a cache-expiry behaviour test once op command can be mocked
+	assert.True(t, found, "Expired cache entry should remain stored until accessed")
 }

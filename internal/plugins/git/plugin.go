@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/unravelling/kilt/internal/core"
@@ -18,14 +20,15 @@ import (
 // Plugin handles bidirectional Git synchronisation for the dotfiles repository
 // and manages extra repositories
 type Plugin struct {
-	ctx           *plugin.Context
-	dotfilesPath  string
-	repoPath      string
-	autoPull      bool
-	sshKey        string
-	gitToken      string
-	clonedRepos   []string // Track cloned repos for rollback
-	askpassScript string   // Path to temporary GIT_ASKPASS script (for token auth)
+	ctx            *plugin.Context
+	dotfilesPath   string
+	repoPath       string
+	autoPull       bool
+	sshKey         string
+	gitToken       string
+	clonedRepos    []string // Track cloned repos for rollback
+	askpassScript  string   // Path to temporary GIT_ASKPASS script (for token auth)
+	askpassTempDir string   // Path to temporary directory containing askpass script
 }
 
 // init registers the git plugin
@@ -68,6 +71,7 @@ func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.gitToken = ""
 	p.clonedRepos = make([]string, 0)
 	p.askpassScript = ""
+	p.askpassTempDir = ""
 
 	cfg, ok := ctx.Config.(*core.Config)
 	if !ok {
@@ -416,50 +420,87 @@ func (p *Plugin) updateRepository(repo core.Repository, repoPath string) error {
 	return nil
 }
 
-// createAskpassScript creates a temporary GIT_ASKPASS script that outputs the token
-// This provides transient credential authentication without persisting tokens in URLs or config
+// createAskpassScript creates a secure temporary GIT_ASKPASS script that outputs the token
+// This provides transient credential authentication without persisting tokens in URLs or config.
+// The script is created in a private temporary directory with secure permissions.
+// Signal handlers are installed to ensure cleanup on process termination.
 func (p *Plugin) createAskpassScript() (string, error) {
 	if p.gitToken == "" {
 		return "", nil
 	}
 
-	// Create temporary script file
-	tmpFile, err := os.CreateTemp("", "kilt-git-askpass-*")
+	// Create private temporary directory with restrictive permissions
+	tempDir, err := os.MkdirTemp("", "kilt-git-auth-*")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temporary askpass script: %w", err)
+		return "", fmt.Errorf("failed to create temporary directory: %w", err)
 	}
-	scriptPath := tmpFile.Name()
 
-	// Write script that outputs the token
-	// The script will be called by Git when it needs credentials
+	// Ensure directory has restrictive permissions (0700)
+	if err := os.Chmod(tempDir, 0o700); err != nil {
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // Cleanup in error path
+		return "", fmt.Errorf("failed to set directory permissions: %w", err)
+	}
+
+	// Create askpass script file inside the private directory
+	scriptPath := filepath.Join(tempDir, "askpass")
+	file, err := os.OpenFile(scriptPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)
+	if err != nil {
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // Cleanup in error path
+		return "", fmt.Errorf("failed to create askpass script: %w", err)
+	}
+
+	// Write script content
 	scriptContent := fmt.Sprintf(`#!/bin/sh
 echo "%s"
 `, p.gitToken)
 
-	if _, err := tmpFile.WriteString(scriptContent); err != nil {
-		_ = tmpFile.Close()       //nolint:errcheck // Cleanup in error path
-		_ = os.Remove(scriptPath) //nolint:errcheck // Cleanup in error path
+	if _, err := file.WriteString(scriptContent); err != nil {
+		_ = file.Close()          //nolint:errcheck // Cleanup in error path
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // Cleanup in error path
 		return "", fmt.Errorf("failed to write askpass script: %w", err)
 	}
 
-	if err := tmpFile.Close(); err != nil {
-		_ = os.Remove(scriptPath) //nolint:errcheck // Cleanup in error path
+	// Ensure data is written to disk
+	if err := file.Sync(); err != nil {
+		_ = file.Close()          //nolint:errcheck // Cleanup in error path
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // Cleanup in error path
+		return "", fmt.Errorf("failed to sync askpass script: %w", err)
+	}
+
+	if err := file.Close(); err != nil {
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // Cleanup in error path
 		return "", fmt.Errorf("failed to close askpass script: %w", err)
 	}
 
-	// Make script executable
-	//nolint:gosec // G302: executable script requires 0700 permissions
+	// Make script executable (required for GIT_ASKPASS)
 	if err := os.Chmod(scriptPath, 0o700); err != nil {
-		_ = os.Remove(scriptPath) //nolint:errcheck // Cleanup in error path
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // Cleanup in error path
 		return "", fmt.Errorf("failed to make askpass script executable: %w", err)
 	}
+
+	// Store the directory path for cleanup (we need to clean up the whole directory)
+	p.askpassTempDir = tempDir
+
+	// Set up signal handler for cleanup on process termination
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	go func() {
+		<-sigChan
+		p.cleanupAskpassScript()
+		os.Exit(1)
+	}()
 
 	return scriptPath, nil
 }
 
-// cleanupAskpassScript removes the temporary GIT_ASKPASS script
+// cleanupAskpassScript removes the temporary GIT_ASKPASS script and its directory
 func (p *Plugin) cleanupAskpassScript() {
-	if p.askpassScript != "" {
+	if p.askpassTempDir != "" {
+		_ = os.RemoveAll(p.askpassTempDir) //nolint:errcheck // Cleanup operation - errors are non-critical
+		p.askpassTempDir = ""
+		p.askpassScript = ""
+	} else if p.askpassScript != "" {
+		// Fallback for old single-file cleanup (should not normally be used)
 		_ = os.Remove(p.askpassScript) //nolint:errcheck // Cleanup operation - errors are non-critical
 		p.askpassScript = ""
 	}
@@ -593,7 +634,14 @@ func (p *Plugin) pullWithRebase() error {
 	// First, try to stash any uncommitted changes
 	cmd := exec.Command("git", "stash", "push", "-m", "kilt: auto-stash before pull")
 	cmd.Dir = p.repoPath
-	_ = cmd.Run() // Ignore errors (might be nothing to stash)
+	stashOutput, stashErr := cmd.CombinedOutput()
+
+	stashOutputLower := strings.ToLower(string(stashOutput))
+	stashed := stashErr == nil && !strings.Contains(stashOutputLower, "no local changes")
+	if stashErr != nil && p.ctx.Logger != nil {
+		// Log non-fatal stash push errors (e.g., nothing to stash)
+		p.ctx.Logger.Debug("Git stash push result", "error", stashErr, "output", string(stashOutput))
+	}
 
 	// Pull with rebase
 	cmd = exec.Command("git", "pull", "--rebase", "origin")
@@ -604,35 +652,38 @@ func (p *Plugin) pullWithRebase() error {
 	defer p.cleanupAskpassScript()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Restore stash if pull failed
-		cmd = exec.Command("git", "stash", "pop")
-		cmd.Dir = p.repoPath
-		stashOutput, stashErr := cmd.CombinedOutput()
-		if stashErr != nil {
-			// Log the stash pop error but return the original pull error
-			if p.ctx.Logger != nil {
-				p.ctx.Logger.Warn("Failed to restore stashed changes after pull failure",
-					"error", stashErr,
-					"output", string(stashOutput),
-					"hint", "run 'git stash list' to check your stashes")
+		// Restore stash if pull failed and stash was created
+		if stashed {
+			cmd = exec.Command("git", "stash", "pop")
+			cmd.Dir = p.repoPath
+			stashPopOutput, stashPopErr := cmd.CombinedOutput()
+			if stashPopErr != nil {
+				// Log the stash pop error but return the original pull error
+				if p.ctx.Logger != nil {
+					p.ctx.Logger.Warn("Failed to restore stashed changes after pull failure",
+						"error", stashPopErr,
+						"output", string(stashPopOutput),
+						"hint", "run 'git stash list' to check your stashes")
+				}
 			}
 		}
 		return fmt.Errorf("git pull --rebase failed: %s: %w", string(output), err)
 	}
 
-	// Restore stash if it exists
-	cmd = exec.Command("git", "stash", "pop")
-	cmd.Dir = p.repoPath
-	stashOutput, stashErr := cmd.CombinedOutput()
-	if stashErr != nil {
-		// Log the stash pop failure and return an error so users are notified
-		if p.ctx.Logger != nil {
-			p.ctx.Logger.Error("Failed to restore stashed changes after successful pull",
-				"error", stashErr,
-				"output", string(stashOutput),
-				"hint", "run 'git stash list' to check your stashes")
+	// Restore stash if it was created
+	if stashed {
+		cmd = exec.Command("git", "stash", "pop")
+		cmd.Dir = p.repoPath
+		stashPopOutput, stashPopErr := cmd.CombinedOutput()
+		if stashPopErr != nil {
+			// For successful pulls, treat stash pop failure as non-fatal warning
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("Failed to restore stashed changes after successful pull",
+					"error", stashPopErr,
+					"output", string(stashPopOutput),
+					"hint", "run 'git stash list' then try 'git stash apply' if needed")
+			}
 		}
-		return fmt.Errorf("failed to restore stashed changes: %s: %w", string(stashOutput), stashErr)
 	}
 
 	return nil
@@ -670,12 +721,19 @@ func (p *Plugin) commitAndPush() error {
 	lines := strings.Split(changedFiles, "\n")
 	fileList := make([]string, 0, len(lines))
 	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			// Extract filename (skip status prefix)
-			parts := strings.Fields(line)
-			if len(parts) > 1 {
-				fileList = append(fileList, "- "+parts[len(parts)-1])
+		if strings.TrimSpace(line) != "" && len(line) >= 3 {
+			// Extract filename from porcelain format (skip 2-char status prefix + space)
+			filename := strings.TrimSpace(line[3:])
+
+			// Handle renames: extract target name after " -> "
+			if strings.Contains(filename, " -> ") {
+				parts := strings.Split(filename, " -> ")
+				if len(parts) >= 2 {
+					filename = strings.TrimSpace(parts[len(parts)-1])
+				}
 			}
+
+			fileList = append(fileList, "- "+filename)
 		}
 	}
 

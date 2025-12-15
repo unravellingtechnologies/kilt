@@ -313,12 +313,14 @@ type TemplateData struct {
 - Integrate with 1Password plugin for secrets
 - Handle template errors gracefully
 
+**Built-in Variables**:
+- `{{ .Hostname }}` - System hostname
+- `{{ .OS }}` - Operating system (darwin, linux)
+- `{{ .Arch }}` - Architecture (amd64, arm64)
+- `{{ .User }}` - Current username
+- `{{ .Home }}` - Home directory path
+
 **Built-in Functions**:
-- `{{ .hostname }}` - System hostname
-- `{{ .os }}` - Operating system (darwin, linux)
-- `{{ .arch }}` - Architecture (amd64, arm64)
-- `{{ .user }}` - Current username
-- `{{ .home }}` - Home directory path
 - `{{ env "VAR" }}` - Environment variable
 - `{{ op "path/to/secret" }}` - 1Password secret (via plugin)
 

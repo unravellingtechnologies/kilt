@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -110,10 +111,19 @@ func checkGit() checkResult {
 		}
 	}
 
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return checkResult{
+			name:    "Git",
+			status:  "warn",
+			message: "version output empty",
+		}
+	}
+
 	return checkResult{
 		name:    "Git",
 		status:  "ok",
-		message: string(out[:len(out)-1]), // Remove trailing newline
+		message: trimmed,
 	}
 }
 

@@ -7,6 +7,7 @@ package core
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -156,22 +157,58 @@ func (sm *StateManager) save() error {
 
 // isProcessAlive checks if a process with the given PID is still running
 // Returns true if the process exists, false otherwise
+// Note: If we lack permission to check the process (EPERM), we conservatively
+// assume it's alive to avoid removing valid locks
 func isProcessAlive(pid int) bool {
 	// Use syscall.Kill with signal 0 to check if process exists
 	// Signal 0 doesn't actually send a signal, it just checks if the process is alive
 	err := syscall.Kill(pid, 0)
-	return err == nil
+	if err == nil {
+		return true // Process exists
+	}
+	// If we get EPERM (permission denied), the process might still exist
+	// but we can't check it - conservatively assume it's alive
+	if err == syscall.EPERM {
+		return true
+	}
+	// ESRCH (no such process) or other errors indicate process doesn't exist
+	return false
 }
 
 // checkAndRemoveStaleLock checks if a lock file exists and is stale (process is dead)
 // Returns true if the lock was removed (stale or invalid), false if lock is valid
 func (sm *StateManager) checkAndRemoveStaleLock(lockPath string) (bool, error) {
-	//nolint:gosec // G304: lockPath is constructed from validated stateDir, not user input
-	data, err := os.ReadFile(lockPath)
+	var (
+		data []byte
+		err  error
+	)
+
+	for attempt := 0; attempt < 3; attempt++ {
+		//nolint:gosec // G304: lockPath is constructed from validated stateDir, not user input
+		data, err = os.ReadFile(lockPath)
+		if err == nil {
+			break
+		}
+
+		if os.IsNotExist(err) {
+			return true, nil // Treat missing lock as cleared
+		}
+
+		if os.IsPermission(err) {
+			return false, err
+		}
+
+		if errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EIO) {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+
+		// Non-transient error
+		return false, fmt.Errorf("failed to read lock file: %w", err)
+	}
+
 	if err != nil {
-		// Can't read lock file - remove it (might be corrupted)
-		_ = os.Remove(lockPath) //nolint:errcheck // Cleanup operation - errors are non-critical
-		return true, nil
+		return false, fmt.Errorf("failed to read lock file after retries: %w", err)
 	}
 
 	// Parse PID from lock file

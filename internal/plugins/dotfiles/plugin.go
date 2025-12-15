@@ -16,15 +16,23 @@ import (
 
 // Plugin handles symlink-based dotfile synchronisation
 type Plugin struct {
-	ctx          *plugin.Context
-	dotfilesPath string
-	linkedFiles  []LinkedFile // for rollback
+	ctx           *plugin.Context
+	dotfilesPath  string
+	linkedFiles   []LinkedFile   // symlinks created for rollback
+	templateFiles []TemplateFile // template files written for rollback
 }
 
 // LinkedFile tracks a symlink that was created
 type LinkedFile struct {
 	Source string
 	Target string
+}
+
+// TemplateFile tracks a template file that was written
+type TemplateFile struct {
+	Source    string // Template source file
+	Target    string // Target file location
+	HadBackup bool   // Whether a backup was created before writing
 }
 
 // Common dotfile names that should get auto-prefixed with dot
@@ -74,6 +82,7 @@ func (p *Plugin) Phase() plugin.ExecutionPhase {
 func (p *Plugin) Initialise(ctx *plugin.Context) error {
 	p.ctx = ctx
 	p.linkedFiles = make([]LinkedFile, 0)
+	p.templateFiles = make([]TemplateFile, 0)
 
 	cfg, ok := ctx.Config.(*core.Config)
 	if !ok {
@@ -229,12 +238,14 @@ func (p *Plugin) processTemplateFile(sourcePath, targetPath string, entry core.D
 	}
 
 	// Backup existing file if it exists
+	hadBackup := false
 	if _, err := os.Stat(targetPath); err == nil {
 		if p.ctx.Backup != nil {
 			_, _, err := p.ctx.Backup.CreateBackup([]string{targetPath}, "kilt: backup before template update")
 			if err != nil {
 				return fmt.Errorf("failed to backup existing file %s before template update: %w", targetPath, err)
 			}
+			hadBackup = true
 		}
 	}
 
@@ -254,6 +265,13 @@ func (p *Plugin) processTemplateFile(sourcePath, targetPath string, entry core.D
 	if err := os.WriteFile(targetPath, []byte(rendered), p.getFileMode(entry.Mode)); err != nil {
 		return fmt.Errorf("failed to write template file: %w", err)
 	}
+
+	// Track template file for rollback
+	p.templateFiles = append(p.templateFiles, TemplateFile{
+		Source:    sourcePath,
+		Target:    targetPath,
+		HadBackup: hadBackup,
+	})
 
 	// Update state using the interface
 	if p.ctx.State != nil {
@@ -411,8 +429,9 @@ func (p *Plugin) getFileMode(modeStr string) os.FileMode {
 	return os.FileMode(mode)
 }
 
-// Rollback rolls back created symlinks
+// Rollback rolls back created symlinks and template files
 func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
+	// Rollback symlinks
 	for _, linked := range p.linkedFiles {
 		if err := os.Remove(linked.Target); err != nil {
 			if p.ctx.Logger != nil {
@@ -420,6 +439,23 @@ func (p *Plugin) Rollback(ctx *plugin.ExecutionContext) error {
 			}
 		}
 	}
+
+	// Rollback template files
+	for _, template := range p.templateFiles {
+		// For template files, we simply remove them during rollback
+		// The backup system will handle restoration of the original files if needed
+		if err := os.Remove(template.Target); err != nil {
+			if p.ctx.Logger != nil {
+				p.ctx.Logger.Warn("Failed to remove template file during rollback", "target", template.Target, "error", err)
+			}
+		} else if p.ctx.Logger != nil {
+			p.ctx.Logger.Debug("Removed template file during rollback", "target", template.Target)
+		}
+	}
+
+	// Clear tracking slices
 	p.linkedFiles = make([]LinkedFile, 0)
+	p.templateFiles = make([]TemplateFile, 0)
+
 	return nil
 }

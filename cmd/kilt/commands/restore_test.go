@@ -45,8 +45,8 @@ func TestRestoreCommand_NonExistentBackup(t *testing.T) {
 	// Use --force to skip the confirmation prompt that would block on fmt.Scanln()
 	cmd := NewRestoreCmd()
 	cmd.SetArgs([]string{"20250101-120000", "--force"})
-	cmd.SetOut(os.NewFile(0, os.DevNull))
-	cmd.SetErr(os.NewFile(0, os.DevNull))
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
 
 	// This will fail because backup doesn't exist, but we're testing the command structure
 	err := cmd.Execute()
@@ -59,11 +59,6 @@ func TestNewRestoreCmd(t *testing.T) {
 	cmd := NewRestoreCmd()
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "restore <backup-id>", cmd.Use)
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(s, substr string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 func TestBackupIDPattern(t *testing.T) {
