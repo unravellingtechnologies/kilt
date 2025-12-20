@@ -1,0 +1,33 @@
+---
+description: Go-specific rules following Effective Go and modern best practices
+globs: ["**/*.go"]
+---
+
+# Tooling
+
+- Run gofmt, go vet, staticcheck, golangci-lint before commit.
+- Use `go mod tidy` after dependency changes.
+- Target go 1.22+ with workspace mode when beneficial.
+
+# Idioms
+
+- Logging: `slog` (stdlib) or `uber-go/zap`. Never fmt.Println.
+- Errors: use `errors.Is`/`errors.As`, wrap with `fmt.Errorf("context: %w", err)`.
+- Prefer explicit error returns over panic (panic only in unrecoverable init).
+- `context.Context` as first param in cancellable/long-running functions.
+- Simple structs + methods over interfaces unless polymorphism needed.
+- No global variables except true constants or sync.Pool.
+- Receiver: `*T` for mutation, `T` for read-only.
+
+# Naming
+
+- Exported: PascalCase. Unexported: camelCase.
+- Acronyms uppercase: HTTPClient, JSONMarshal (not HttpClient).
+
+# Testing
+
+- Tests in `_test.go` alongside source.
+- Table-driven tests when >3 cases.
+- testify/require for assertions when it reduces boilerplate.
+- Benchmarks: include allocs/op, use realistic data.
+- Internal packages for shared code—never expose implementation.

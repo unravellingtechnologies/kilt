@@ -1,0 +1,20 @@
+# Invalid config for testing error handling
+template_engine: "invalid_engine"
+
+dotfiles:
+  - {}  # Invalid: neither directory nor source/target
+
+extra_repos:
+  - url: ""  # Invalid: empty URL
+    path: "path"
+
+directories:
+  - ""  # Invalid: empty directory
+
+run_once:
+  - ""  # Invalid: empty script
+
+on_change:
+  - ""  # Invalid: empty command
+
+

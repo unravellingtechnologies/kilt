@@ -1,0 +1,38 @@
+---
+description: CI/CD pipeline conventions - load when working on pipelines or deployment
+alwaysApply: false
+---
+
+# Pipeline Structure
+
+- Stages: lint → test → build → deploy (in order, fail fast).
+- Path filtering: only run relevant jobs for changed files.
+- Cache dependencies aggressively (node_modules, go mod cache).
+- Parallelize independent jobs.
+
+# Quality Gates
+
+- Lint and type-check must pass.
+- Tests must pass with coverage threshold (e.g., 80% on new code).
+- Security scan (dependency audit, SAST).
+- Build must succeed and produce artifacts.
+
+# Deployment
+
+- Immutable artifacts: same build for all environments.
+- Environment promotion: dev → staging → production.
+- Feature flags for risky changes. Gradual rollout.
+- Rollback plan for every deploy.
+
+# Environment Management
+
+- Secrets via CI secrets store (GitHub Secrets, Vault, etc.). Never in code.
+- Environment-specific config via env vars, not code branches.
+- Staging mirrors production (data shape, not real data).
+
+# Automation
+
+- Auto-merge dependabot/renovate after CI passes (for patch/minor).
+- Deploy to staging on merge to main.
+- Production deploy: manual trigger or approval gate.
+- Notifications: failures to team channel, deploys to deploy channel.

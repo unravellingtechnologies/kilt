@@ -1,0 +1,161 @@
+# golangci-lint configuration for kilt
+# See: https://golangci-lint.run/docs/configuration/file/
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - gofumpt
+    - gci
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/unravelling/kilt
+    gofumpt:
+      extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/unravelling/kilt)
+
+linters:
+  enable:
+    # Official linters
+    - govet
+    - staticcheck
+
+    # Error checking
+    - errcheck
+    - errorlint
+
+    # Code correctness
+    - ineffassign
+    - unconvert
+    - unused
+    - unparam
+    - goconst
+
+    # Code complexity
+    # Note: nestif was removed - it penalizes legitimate nesting from Go's error
+    # handling idioms and type assertions. gocyclo and gocognit already catch
+    # genuinely over-complex functions.
+    - gocyclo
+    - gocognit
+
+    # Style issues
+    - misspell
+    - revive
+
+    # Security
+    - gosec
+
+    # Performance
+    - prealloc
+  exclusions:
+    rules:
+      # Allow errcheck in test files for cleanup and setup operations
+      - path: '(.+)_test\.go'
+        linters:
+          - errcheck
+      # Allow unused in test files
+      - path: '(.+)_test\.go'
+        linters:
+          - unused
+      # Allow gocyclo in test files (tests can be complex)
+      - path: '(.+)_test\.go'
+        linters:
+          - gocyclo
+      # Allow higher cognitive complexity in tests
+      - path: '(.+)_test\.go'
+        linters:
+          - gocognit
+      # Allow goconst in test files - test strings don't need to be constants
+      - path: '(.+)_test\.go'
+        linters:
+          - goconst
+      # Allow permission and file inclusion gosec violations in test files
+      # G301: directory permissions, G302: file permissions, G306: WriteFile permissions
+      # G304: file inclusion via variable (acceptable in tests - reading test fixtures)
+      # NOTE: G204 (subprocess execution) is NOT excluded - critical security checks remain active
+      - path: '(.+)_test\.go'
+        text: 'G30[1246]:'
+        linters:
+          - gosec
+      # Allow permission and file inclusion gosec violations in test directory helper files
+      - path: '^test/.+\.go$'
+        text: 'G30[1246]:'
+        linters:
+          - gosec
+  settings:
+    errcheck:
+      # Exclude common test cleanup functions from errcheck
+      # These are commonly used in test setup/teardown where errors are non-critical
+      exclude-functions:
+        - os.RemoveAll
+        - os.Remove
+        - os.Setenv
+        - os.Unsetenv
+        - os.Chdir
+        - os.Chmod
+
+    gocyclo:
+      # Raised from 15 to 20 - command handlers and scoring functions have
+      # legitimate branching that would be less readable if artificially split.
+      min-complexity: 20
+
+    gocognit:
+      # Raised from 15 to 35 - many functions in this codebase have justified
+      # complexity from Go's error handling patterns and plugin orchestration logic.
+      # Functions above 35 genuinely need attention.
+      min-complexity: 35
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    misspell:
+      locale: UK
+
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+        - name: var-naming
+          severity: warning
+        - name: var-declaration
+          severity: warning
+        - name: package-comments
+          severity: warning
+        - name: range
+          severity: warning
+        - name: increment-decrement
+          severity: warning
+        - name: error-naming
+          severity: warning
+        - name: error-return
+          severity: warning
+        - name: error-strings
+          severity: warning
+        - name: receiver-naming
+          severity: warning
+        - name: unexported-return
+          severity: warning
+
+    gosec:
+      severity: medium
+      confidence: medium
+      excludes:
+        - G104 # Allow unhandled errors in defer
+        - G307 # Defer without recovery allowed
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

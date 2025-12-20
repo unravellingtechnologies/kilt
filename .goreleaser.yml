@@ -1,0 +1,91 @@
+# Goreleaser configuration for Kilt
+# See https://goreleaser.com for documentation
+version: 2
+
+project_name: kilt
+
+# Before building, run hooks
+before:
+  hooks:
+    - go mod tidy
+
+# Build configuration
+builds:
+  - id: kilt
+    binary: kilt
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      # Inject version, commit, and build date into binary
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+# Archive configuration (creates tar.gz archives for distribution)
+# Note: Binaries are also uploaded directly as release assets with names matching installer expectations
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+    # Ensure binary inside archive matches expected name
+    builds:
+      - kilt
+
+# Checksums for all release assets
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+# Snapshot releases (for testing)
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# Changelog generation
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+# Release configuration
+release:
+  # GitHub release settings
+  github:
+    owner: unravelling
+    name: kilt
+  # Release notes template
+  header: |
+    ## Kilt {{ .Tag }}
+    
+    {{ .ReleaseNotes }}
+    
+    **Full Changelog**: {{ .PreviousTag }}...{{ .Tag }}
+
+# Homebrew tap configuration (optional - uncomment when ready)
+# brews:
+#   - tap:
+#       owner: unravelling
+#       name: homebrew-tap
+#     folder: Formula
+#     homepage: "https://github.com/unravelling/kilt"
+#     description: "Bootstrap manager for Mac. Think dot files management, but with a beard"
+#     test: |
+#       system "#{bin}/kilt version"
+#     install: |
+#       bin.install "kilt"
+
+
+
