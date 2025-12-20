@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/unravelling/kilt/internal/core"
@@ -116,7 +117,7 @@ func TestMissingSourceFiles(t *testing.T) {
 // TestPermissionDenied tests error handling with permission denied scenarios
 func TestPermissionDenied(t *testing.T) {
 	// Skip on Windows
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("Skipping permission test on Windows")
 	}
 
@@ -228,13 +229,8 @@ func TestRollbackOnFailure(t *testing.T) {
 		t.Fatalf("Initial execution should succeed: %v", result.Errors)
 	}
 
-	// Note: Actual rollback testing would require a plugin that can fail
-	// and implements rollback. For now, we verify the engine has rollback support
+	// TODO: Implement rollback verification using a mock plugin that fails after a reversible change
 	if engine == nil {
 		t.Error("Engine should exist")
 	}
-
-	// The rollback functionality is tested implicitly through plugin failures
-	// Full rollback testing requires mock plugins that can be made to fail
-	t.Log("Rollback mechanism exists in engine (tested implicitly)")
 }

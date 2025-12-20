@@ -226,18 +226,6 @@ func (p *Plugin) checkGlobalChanges(ctx *plugin.ExecutionContext) (bool, []strin
 		return true, changedFiles, nil
 	}
 
-	// Also check if last sync was recent (within this execution)
-	// If this is the first sync, we might not have changes in context yet
-	lastSync := p.ctx.State.GetLastSync()
-	if !lastSync.IsZero() {
-		// Check if sync happened recently (within last minute)
-		if time.Since(lastSync) < time.Minute {
-			// Likely a change occurred, but we'll be conservative
-			// In practice, changes should be in the context
-			return true, []string{}, nil
-		}
-	}
-
 	return false, nil, nil
 }
 

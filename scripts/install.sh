@@ -25,7 +25,7 @@ fi
 
 # Configuration
 KILT_VERSION="${KILT_VERSION:-latest}"
-KILT_REPO="${KILT_REPO:-unravelling/kilt}"
+KILT_REPO="${KILT_REPO:-unravellingtechnologies/kilt}"
 GITHUB_API="https://api.github.com"
 GITHUB_RELEASES="https://github.com/${KILT_REPO}/releases"
 INSTALL_DIR="${KILT_INSTALL_DIR:-}"

@@ -28,7 +28,7 @@ This project adheres to a code of conduct that all contributors are expected to 
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/unravelling/kilt.git
+   git remote add upstream https://github.com/unravellingtechnologies/kilt.git
    ```
 4. **Create a branch** for your changes:
    ```bash
@@ -105,7 +105,7 @@ Follow these guidelines for commit messages:
 - **Use imperative mood**: "Add feature" not "Added feature"
 - **Keep first line under 72 characters**
 - **Include context in body** for non-obvious changes:
-  ```
+  ```text
   Add timeout configuration to runonce plugin
 
   Why: Scripts were hanging indefinitely on slow systems.
@@ -337,7 +337,7 @@ Update documentation when you:
 - Use clear, concise language
 - Include code examples where helpful
 - Keep documentation up to date with code
-- Use proper markdown formatting
+- Use proper Markdown formatting
 - Add diagrams for complex concepts
 
 ## Plugin Development

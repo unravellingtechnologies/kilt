@@ -256,8 +256,14 @@ func (te *TestEnvironment) FileExists(path string) bool {
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(expandedPath)
-	return !os.IsNotExist(err)
+	if _, err := os.Stat(expandedPath); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		// Treat other errors (e.g., permission) as non-existent for test helpers
+		return false
+	}
+	return true
 }
 
 // ReadFile reads a file from the test environment

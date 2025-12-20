@@ -126,10 +126,14 @@ func (p *Plugin) Initialise(ctx *plugin.Context) error {
 		}
 	}
 
-	// Register the op function with the template engine
-	ctx.Template.RegisterOPFunction(p.getSecret)
-	if p.ctx.Logger != nil {
-		p.ctx.Logger.Info("1Password template function registered")
+	// Register the op function with the template engine if available
+	if ctx.Template != nil {
+		ctx.Template.RegisterOPFunction(p.getSecret)
+		if p.ctx.Logger != nil {
+			p.ctx.Logger.Info("1Password template function registered")
+		}
+	} else if p.ctx.Logger != nil {
+		p.ctx.Logger.Warn("Template engine not available, 1Password template function not registered")
 	}
 
 	return nil

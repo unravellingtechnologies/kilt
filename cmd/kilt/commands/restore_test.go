@@ -32,6 +32,9 @@ func TestRestoreCommand_NonExistentBackup(t *testing.T) {
 
 	// Use environment variable to override backup directory
 	originalEnv := os.Getenv("KILT_BACKUP_DIR")
+	if err := os.Setenv("KILT_BACKUP_DIR", backupDir); err != nil {
+		t.Fatalf("Failed to set KILT_BACKUP_DIR: %v", err)
+	}
 	defer func() {
 		if originalEnv != "" {
 			os.Setenv("KILT_BACKUP_DIR", originalEnv)

@@ -217,7 +217,7 @@ kilt version
 
 ### Output
 
-```
+```text
 kilt version 1.0.0
 Build time: 2025-01-25T14:30:22Z
 ```
@@ -318,7 +318,7 @@ kilt backups list --json
 #### Output Format
 
 Human-readable:
-```
+```text
 Backup ID        Date                Time      Files    Size      Description
 20250125-143022  2025-01-25          14:30:22  5        1.2 MB    Sync operation
 20250124-092011  2025-01-24          09:20:11  3        456 KB    Manual backup

@@ -19,40 +19,40 @@ is_empty() {
 }
 
 # Check each Go file (excluding test files)
-for file in $(find . -name "*.go" -not -name "*_test.go" | sort); do
+while IFS= read -r -d '' file; do
     echo "Checking $file..."
-    
+
     # Get line numbers of all functions
-    grep -n "^func " "$file" | while IFS=: read -r lineno func_line; do
+    while IFS=: read -r lineno func_line; do
         ((total_functions++))
-        
+
         # Check if the previous line has a docstring
         prev_lineno=$((lineno - 1))
-        
-        if [ $prev_lineno -gt 0 ]; then
+
+        if [ "$prev_lineno" -gt 0 ]; then
             prev_line=$(sed -n "${prev_lineno}p" "$file")
-            
+
             # Skip if previous line is a comment (docstring)
             if is_comment "$prev_line"; then
                 continue
             fi
-            
+
             # Check one more line back in case there's a blank line
             prev_prev_lineno=$((lineno - 2))
-            if [ $prev_prev_lineno -gt 0 ]; then
+            if [ "$prev_prev_lineno" -gt 0 ]; then
                 prev_prev_line=$(sed -n "${prev_prev_lineno}p" "$file")
                 if is_comment "$prev_prev_line" && is_empty "$prev_line"; then
                     continue
                 fi
-            fi
+            }
         fi
-        
+
         # Extract function name for reporting
-        func_name=$(echo "$func_line" | sed 's/func //' | sed 's/(.*//')
+        func_name=$(echo "$func_line" | sed 's/^func[[:space:]]\+//' | sed 's/(.*//')
         echo "  MISSING: $func_name at line $lineno"
         ((missing_count++))
-    done
-done
+    done < <(grep -n "^\\s*func " "$file")
+done < <(find . -name "*.go" -not -name "*_test.go" -print0 | sort -z)
 
 echo "=================================================="
 echo "Summary:"

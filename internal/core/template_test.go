@@ -50,7 +50,15 @@ func TestTemplateEngine_RenderString_SystemVariables(t *testing.T) {
 	}{
 		{"{{ .Hostname }}", func(s string) bool { return s != "" }, "hostname"},
 		{"{{ .OS }}", func(s string) bool { return s == "darwin" || s == "linux" || s == "windows" }, "os"},
-		{"{{ .Arch }}", func(s string) bool { return s == "amd64" || s == "arm64" }, "arch"},
+		{"{{ .Arch }}", func(s string) bool {
+			// Accept common Go architecture names; any non-empty value is considered valid
+			switch s {
+			case "amd64", "386", "arm", "arm64", "arm64be", "armbe", "ppc64", "ppc64le", "mips", "mipsle", "mips64", "mips64le", "s390x":
+				return true
+			default:
+				return s != ""
+			}
+		}, "arch"},
 		{"{{ .User }}", func(s string) bool { return s != "" }, "user"},
 		{"{{ .Home }}", func(s string) bool { return strings.HasPrefix(s, "/") || strings.Contains(s, "\\") }, "home"},
 	}

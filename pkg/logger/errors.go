@@ -16,7 +16,15 @@ type ErrorWithSuggestion struct {
 
 // Error returns the error message
 func (e *ErrorWithSuggestion) Error() string {
-	msg := e.Err.Error()
+	if e == nil {
+		return ""
+	}
+
+	msg := ""
+	if e.Err != nil {
+		msg = e.Err.Error()
+	}
+
 	if e.Suggestion != "" {
 		msg += "\n\nSuggestion: " + e.Suggestion
 	}
@@ -74,10 +82,22 @@ func FormatError(err error, colourized bool) string {
 	msg := err.Error()
 
 	// Check if it's an ErrorWithSuggestion
-	ews := &ErrorWithSuggestion{}
-	if errors.As(err, &ews) {
-		parts := strings.Split(ews.Err.Error(), "\n")
-		errorMsg := parts[0]
+	var ews *ErrorWithSuggestion
+	if errors.As(err, &ews) && ews != nil {
+		baseErr := ews.Err
+		baseMsg := ""
+		if baseErr != nil {
+			baseMsg = baseErr.Error()
+		} else {
+			baseMsg = ""
+		}
+		parts := strings.Split(baseMsg, "\n")
+		errorMsg := ""
+		if len(parts) > 0 && parts[0] != "" {
+			errorMsg = parts[0]
+		} else {
+			errorMsg = err.Error()
+		}
 		rest := strings.Join(parts[1:], "\n")
 
 		formatted := colourRed + colourBold + "Error: " + colourReset + colourRed + errorMsg + colourReset

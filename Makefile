@@ -47,7 +47,7 @@ lint: ## Run linters
 
 lint-install: ## Install golangci-lint
 	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.60.1)
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.7.1)
 
 fmt: ## Format code with gofmt and goimports
 	go fmt ./...
